@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "951652872306",
+    "project_id": "reel-ai-dev",
+    "storage_bucket": "reel-ai-dev.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:951652872306:android:2257bb41901f93289b92eb",
+        "android_client_info": {
+          "package_name": "com.example.reel_ai"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCEGXGSctfLi7b0CZiwFfpqMyvT3zIdqSE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:951652872306:android:82d72814d42379e69b92eb",
+        "android_client_info": {
+          "package_name": "com.gauntletai.freshman.reelai"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCEGXGSctfLi7b0CZiwFfpqMyvT3zIdqSE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
