@@ -3,18 +3,28 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 class User {
   final String id;
   final String username;
+  final String displayName;
   final String? photoUrl;
-  final List<String> subscribedTo;
-  final int subscriberCount;
-  final List<String> playlists;
+  final String bio;
+  final int followerCount;
+  final int followingCount;
+  final int likeCount;      // Total likes received on all videos
+  final int videoCount;
+  final List<String> following;    // List of user IDs this user follows
+  final List<String> followers;    // List of user IDs following this user
 
   User({
     required this.id,
     required this.username,
+    required this.displayName,
     this.photoUrl,
-    this.subscribedTo = const [],
-    this.subscriberCount = 0,
-    this.playlists = const [],
+    this.bio = '',
+    this.followerCount = 0,
+    this.followingCount = 0,
+    this.likeCount = 0,
+    this.videoCount = 0,
+    this.following = const [],
+    this.followers = const [],
   });
 
   factory User.fromFirestore(DocumentSnapshot doc) {
@@ -22,20 +32,30 @@ class User {
     return User(
       id: doc.id,
       username: data['username'] ?? '',
+      displayName: data['displayName'] ?? '',
       photoUrl: data['photoUrl'],
-      subscribedTo: List<String>.from(data['subscribedTo'] ?? []),
-      subscriberCount: data['subscriberCount'] ?? 0,
-      playlists: List<String>.from(data['playlists'] ?? []),
+      bio: data['bio'] ?? '',
+      followerCount: data['followerCount'] ?? 0,
+      followingCount: data['followingCount'] ?? 0,
+      likeCount: data['likeCount'] ?? 0,
+      videoCount: data['videoCount'] ?? 0,
+      following: List<String>.from(data['following'] ?? []),
+      followers: List<String>.from(data['followers'] ?? []),
     );
   }
 
-  Map<String, dynamic> toMap() {
+  Map<String, dynamic> toFirestore() {
     return {
       'username': username,
+      'displayName': displayName,
       'photoUrl': photoUrl,
-      'subscribedTo': subscribedTo,
-      'subscriberCount': subscriberCount,
-      'playlists': playlists,
+      'bio': bio,
+      'followerCount': followerCount,
+      'followingCount': followingCount,
+      'likeCount': likeCount,
+      'videoCount': videoCount,
+      'following': following,
+      'followers': followers,
     };
   }
 } 

@@ -10,15 +10,4 @@ Checking for npm/bin/npm-cli install at /Users/cyrus/.cache/firebase/tools/lib/n
 Checking for npm/bin/npm-cli install at /Users/cyrus/.cache/firebase/tools/node_modules/npm/bin/npm-cli
 Checking for npm/bin/npm-cli install at /snapshot/firepit/node_modules/npm/bin/npm-cli
 Found npm/bin/npm-cli install.
-Runtime binaries created.
-/usr/local/bin/firebase
-/usr/local/bin/firebase,/snapshot/firepit/firepit.js,apps:sdkconfig,ios,1:951652872306:ios:7250f504c04c35439b92eb,--json
-Checking for npm/bin/npm-cli install at /Users/cyrus/.cache/firebase/tools/lib/node_modules/npm/bin/npm-cli
-Checking for npm/bin/npm-cli install at /Users/cyrus/.cache/firebase/tools/node_modules/npm/bin/npm-cli
-Checking for npm/bin/npm-cli install at /snapshot/firepit/node_modules/npm/bin/npm-cli
-Found npm/bin/npm-cli install.
-Checking for npm/bin/npm-cli install at /Users/cyrus/.cache/firebase/tools/lib/node_modules/npm/bin/npm-cli
-Checking for npm/bin/npm-cli install at /Users/cyrus/.cache/firebase/tools/node_modules/npm/bin/npm-cli
-Checking for npm/bin/npm-cli install at /snapshot/firepit/node_modules/npm/bin/npm-cli
-Found npm/bin/npm-cli install.
-ShellJSInternalError: ENOENT: no such file or directory, chmod '/Users/cyrus/.cache/firebase/runtime/shell.js'
+ShellJSInternalError: ENOENT: no such file or directory, stat '/Users/cyrus/.cache/firebase/runtime/npmrc'

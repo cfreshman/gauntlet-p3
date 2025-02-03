@@ -6,10 +6,16 @@ class Video {
   final String description;
   final String videoUrl;
   final String thumbnailUrl;
-  final String userId;
+  final String creatorId;
+  final String creatorName;
+  final int likeCount;
+  final int commentCount;
+  final int viewCount;
+  final int shareCount;
   final DateTime createdAt;
-  final int likes;
-  final List<String> tags;
+  final List<String> hashtags;
+  final String soundId;      // Reference to the sound/music used
+  final String soundName;    // Name of the sound/music
 
   Video({
     required this.id,
@@ -17,10 +23,16 @@ class Video {
     required this.description,
     required this.videoUrl,
     required this.thumbnailUrl,
-    required this.userId,
+    required this.creatorId,
+    required this.creatorName,
+    this.likeCount = 0,
+    this.commentCount = 0,
+    this.viewCount = 0,
+    this.shareCount = 0,
     required this.createdAt,
-    this.likes = 0,
-    this.tags = const [],
+    this.hashtags = const [],
+    this.soundId = '',
+    this.soundName = '',
   });
 
   factory Video.fromFirestore(DocumentSnapshot doc) {
@@ -31,23 +43,35 @@ class Video {
       description: data['description'] ?? '',
       videoUrl: data['videoUrl'] ?? '',
       thumbnailUrl: data['thumbnailUrl'] ?? '',
-      userId: data['userId'] ?? '',
+      creatorId: data['creatorId'] ?? '',
+      creatorName: data['creatorName'] ?? '',
+      likeCount: data['likeCount'] ?? 0,
+      commentCount: data['commentCount'] ?? 0,
+      viewCount: data['viewCount'] ?? 0,
+      shareCount: data['shareCount'] ?? 0,
       createdAt: (data['createdAt'] as Timestamp).toDate(),
-      likes: data['likes'] ?? 0,
-      tags: List<String>.from(data['tags'] ?? []),
+      hashtags: List<String>.from(data['hashtags'] ?? []),
+      soundId: data['soundId'] ?? '',
+      soundName: data['soundName'] ?? '',
     );
   }
 
-  Map<String, dynamic> toMap() {
+  Map<String, dynamic> toFirestore() {
     return {
       'title': title,
       'description': description,
       'videoUrl': videoUrl,
       'thumbnailUrl': thumbnailUrl,
-      'userId': userId,
+      'creatorId': creatorId,
+      'creatorName': creatorName,
+      'likeCount': likeCount,
+      'commentCount': commentCount,
+      'viewCount': viewCount,
+      'shareCount': shareCount,
       'createdAt': Timestamp.fromDate(createdAt),
-      'likes': likes,
-      'tags': tags,
+      'hashtags': hashtags,
+      'soundId': soundId,
+      'soundName': soundName,
     };
   }
 } 
