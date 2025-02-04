@@ -41,18 +41,23 @@ class _AuthScreenState extends State<AuthScreen> {
 
     try {
       if (_isLogin) {
-        await _authService.signInWithEmailAndPassword(_email, _password);
+        await _authService.signInWithEmailAndPassword(
+          _email.trim(),
+          _password.trim(),
+        );
       } else {
         await _authService.createAccountWithEmailAndPassword(
-          _email,
-          _password,
-          _username,
+          _email.trim(),
+          _password.trim(),
+          _username.trim(),
         );
       }
     } catch (e) {
-      setState(() {
-        _errorMessage = e.toString();
-      });
+      if (mounted) {
+        setState(() {
+          _errorMessage = e.toString();
+        });
+      }
     } finally {
       if (mounted) {
         setState(() {
@@ -69,12 +74,12 @@ class _AuthScreenState extends State<AuthScreen> {
     final isLandscape = orientation == Orientation.landscape;
 
     return Container(
-      color: Colors.black,
+      color: AppColors.background,
       child: Scaffold(
         backgroundColor: Colors.transparent,
         body: SafeArea(
           child: Container(
-            color: MinecraftColors.sandstone,
+            color: AppColors.background,
             child: Center(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.all(24),
@@ -134,119 +139,134 @@ class _AuthScreenState extends State<AuthScreen> {
 
   Widget _buildFormFields(BuildContext context) {
     final theme = Theme.of(context);
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        if (!_isLogin) ...[
-          TextFormField(
-            decoration: const InputDecoration(
-              labelText: 'Username',
-              prefixIcon: Icon(Icons.person_outline),
+    return Form(
+      key: _formKey,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (!_isLogin) ...[
+            TextFormField(
+              decoration: const InputDecoration(
+                labelText: 'Username',
+                prefixIcon: Icon(Icons.person_outline),
+              ),
+              textInputAction: TextInputAction.next,
+              onFieldSubmitted: (_) {
+                FocusScope.of(context).requestFocus(_emailFocusNode);
+              },
+              validator: (value) {
+                if (value == null || value.isEmpty) {
+                  return 'Please enter a username';
+                }
+                if (value.length < 3) {
+                  return 'Username must be at least 3 characters';
+                }
+                return null;
+              },
+              onSaved: (value) {
+                if (value != null) {
+                  _username = value.trim();
+                }
+              },
             ),
+            const SizedBox(height: 16),
+          ],
+          TextFormField(
+            decoration: InputDecoration(
+              labelText: 'Email',
+              prefixIcon: Icon(Icons.email, color: AppColors.textPrimary),
+            ),
+            keyboardType: TextInputType.emailAddress,
             textInputAction: TextInputAction.next,
+            focusNode: _emailFocusNode,
             onFieldSubmitted: (_) {
-              FocusScope.of(context).requestFocus(_emailFocusNode);
+              _emailFocusNode.unfocus();
+              _passwordFocusNode.requestFocus();
             },
             validator: (value) {
               if (value == null || value.isEmpty) {
-                return 'Please enter a username';
+                return 'Please enter your email';
               }
-              if (value.length < 3) {
-                return 'Username must be at least 3 characters';
+              if (!value.contains('@')) {
+                return 'Please enter a valid email';
               }
               return null;
             },
-            onSaved: (value) => _username = value!.trim(),
-          ),
-          const SizedBox(height: 16),
-        ],
-        TextFormField(
-          decoration: InputDecoration(
-            labelText: 'Email',
-            prefixIcon: Icon(Icons.email, color: MinecraftColors.darkRedstone),
-          ),
-          keyboardType: TextInputType.emailAddress,
-          textInputAction: TextInputAction.next,
-          focusNode: _emailFocusNode,
-          onFieldSubmitted: (_) {
-            _emailFocusNode.unfocus();
-            _passwordFocusNode.requestFocus();
-          },
-          validator: (value) {
-            if (value == null || value.isEmpty) {
-              return 'Please enter your email';
-            }
-            if (!value.contains('@')) {
-              return 'Please enter a valid email';
-            }
-            return null;
-          },
-          onSaved: (value) => _email = value!.trim(),
-        ),
-        const SizedBox(height: 16),
-        TextFormField(
-          decoration: InputDecoration(
-            labelText: 'Password',
-            prefixIcon: Icon(Icons.lock, color: MinecraftColors.darkRedstone),
-          ),
-          obscureText: true,
-          textInputAction: TextInputAction.done,
-          focusNode: _passwordFocusNode,
-          onFieldSubmitted: (_) {
-            _passwordFocusNode.unfocus();
-            _submit();
-          },
-          validator: (value) {
-            if (value == null || value.isEmpty) {
-              return 'Please enter your password';
-            }
-            if (value.length < 6) {
-              return 'Password must be at least 6 characters';
-            }
-            return null;
-          },
-          onSaved: (value) => _password = value!,
-        ),
-        if (_errorMessage != null) ...[
-          const SizedBox(height: 16),
-          Text(
-            _errorMessage!,
-            style: TextStyle(
-              color: MinecraftColors.darkRedstone,
-              fontWeight: FontWeight.bold,
-            ),
-            textAlign: TextAlign.center,
-          ),
-        ],
-        const SizedBox(height: 24),
-        if (_isLoading)
-          Center(
-            child: CircularProgressIndicator(
-              color: MinecraftColors.redstone,
-            ),
-          )
-        else ...[
-          FilledButton(
-            onPressed: _submit,
-            child: Text(_isLogin ? 'Login' : 'Sign Up'),
-          ),
-          const SizedBox(height: 8),
-          TextButton(
-            onPressed: () {
-              setState(() {
-                _isLogin = !_isLogin;
-                _errorMessage = null;
-              });
+            onSaved: (value) {
+              if (value != null) {
+                _email = value.trim();
+              }
             },
-            child: Text(
-              _isLogin
-                  ? 'Create new account'
-                  : 'I already have an account',
-            ),
           ),
+          const SizedBox(height: 16),
+          TextFormField(
+            decoration: InputDecoration(
+              labelText: 'Password',
+              prefixIcon: Icon(Icons.lock, color: AppColors.textPrimary),
+            ),
+            obscureText: true,
+            textInputAction: TextInputAction.done,
+            focusNode: _passwordFocusNode,
+            onFieldSubmitted: (_) {
+              _passwordFocusNode.unfocus();
+              _submit();
+            },
+            validator: (value) {
+              if (value == null || value.isEmpty) {
+                return 'Please enter your password';
+              }
+              if (value.length < 6) {
+                return 'Password must be at least 6 characters';
+              }
+              return null;
+            },
+            onSaved: (value) {
+              if (value != null) {
+                _password = value.trim();
+              }
+            },
+          ),
+          if (_errorMessage != null) ...[
+            const SizedBox(height: 16),
+            Text(
+              _errorMessage!,
+              style: TextStyle(
+                color: AppColors.textPrimary,
+                fontWeight: FontWeight.bold,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+          const SizedBox(height: 24),
+          if (_isLoading)
+            Center(
+              child: CircularProgressIndicator(
+                color: AppColors.accent,
+              ),
+            )
+          else ...[
+            FilledButton(
+              onPressed: _submit,
+              child: Text(_isLogin ? 'Login' : 'Sign Up'),
+            ),
+            const SizedBox(height: 8),
+            TextButton(
+              onPressed: () {
+                setState(() {
+                  _isLogin = !_isLogin;
+                  _errorMessage = null;
+                });
+              },
+              child: Text(
+                _isLogin
+                    ? 'Create new account'
+                    : 'I already have an account',
+              ),
+            ),
+          ],
         ],
-      ],
+      ),
     );
   }
 } 

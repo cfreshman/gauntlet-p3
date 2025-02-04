@@ -39,24 +39,24 @@ class _HomeScreenState extends State<HomeScreen> {
             children: [
               // Left side navigation rail
               NavigationRail(
-                backgroundColor: MinecraftColors.lightSandstone,
+                backgroundColor: AppColors.background,
                 selectedIndex: _selectedIndex,
                 onDestinationSelected: _onItemTapped,
                 labelType: NavigationRailLabelType.all,
                 useIndicator: true,
-                indicatorColor: MinecraftColors.darkRedstone,
+                indicatorColor: AppColors.accent,
                 selectedIconTheme: IconThemeData(
-                  color: MinecraftColors.lightSandstone,
+                  color: AppColors.background,
                 ),
                 unselectedIconTheme: IconThemeData(
-                  color: MinecraftColors.darkRedstone.withOpacity(0.7),
+                  color: AppColors.accent.withOpacity(0.7),
                 ),
                 selectedLabelTextStyle: TextStyle(
-                  color: MinecraftColors.darkRedstone,
+                  color: AppColors.textPrimary,
                   fontWeight: FontWeight.bold,
                 ),
                 unselectedLabelTextStyle: TextStyle(
-                  color: MinecraftColors.darkRedstone.withOpacity(0.7),
+                  color: AppColors.textPrimary.withOpacity(0.7),
                 ),
                 destinations: const <NavigationRailDestination>[
                   NavigationRailDestination(
@@ -86,13 +86,14 @@ class _HomeScreenState extends State<HomeScreen> {
               VerticalDivider(
                 thickness: 1,
                 width: 1,
-                color: MinecraftColors.darkRedstone.withOpacity(0.2),
+                color: AppColors.accent.withOpacity(0.2),
               ),
               
               // Main content
               Expanded(
                 child: Container(
-                  color: MinecraftColors.sandstone,
+                  color: AppColors.background,
+                  height: MediaQuery.of(context).size.height,
                   child: _screens[_selectedIndex],
                 ),
               ),

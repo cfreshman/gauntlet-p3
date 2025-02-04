@@ -11,34 +11,34 @@ This plan outlines the steps to build the MVP for ReelAI—a reimagined TikTok-s
 
 > **Note:** This implementation plan is for a course project. I (the AI coding tool) will be implementing this as a learning exercise and demonstration. Although this project is not intended for real users, we will simulate a proper development vs. production separation.
 
-## Step 1: Initial Setup & Planning
+## Step 1: Initial Setup & Planning ✅
 - **Define Requirements & Scope:**  
-  - Confirm the MVP user stories and overall functionality.
+  - ✅ Confirm the MVP user stories and overall functionality.
   - Finalize data modeling/schema for videos, users, playlists, likes, comments, and subscriptions in Firestore.
 - **Environment Setup:**  
-  - Install the Flutter SDK and any required IDE (e.g., VS Code or Android Studio).
-  - Initialize a new Flutter project and configure version control (e.g., a GitHub repository).
+  - ✅ Install the Flutter SDK and any required IDE (e.g., VS Code or Android Studio).
+  - ✅ Initialize a new Flutter project and configure version control (e.g., a GitHub repository).
 - **Dev/Prod Environment Configuration:**  
   - **Create Two Firebase Projects:**  
-    - One for **development/staging** (dev) and one for **production** (prod).
+    - ✅ One for **development/staging** (dev) and one for **production** (prod).
   - **Manage Environment Variables:**  
     - Use a package like `flutter_dotenv` to maintain separate configuration files (e.g., `.env.dev` and `.env.prod`) containing different Firebase API keys, project IDs, and other settings.
 
-## Step 2: Integrate Firebase with the Flutter App
+## Step 2: Integrate Firebase with the Flutter App ✅
 - **Add Dependencies:**  
   Update your `pubspec.yaml` to include:
-  - `firebase_core`
-  - `cloud_firestore`
-  - `firebase_storage`
+  - ✅ `firebase_core`
+  - ✅ `cloud_firestore`
+  - ✅ `firebase_storage`
   - `firebase_messaging`
-  - Optional: `firebase_auth` (if user registration/login is required), `video_player` (for video playback), and `share_plus` (for sharing functionality)
+  - ✅ Optional: `firebase_auth` (if user registration/login is required), `video_player` (for video playback), and `share_plus` (for sharing functionality)
 - **Initialize Firebase:**  
-  - In `main.dart`, load the correct environment file (using `flutter_dotenv`) and initialize Firebase with the appropriate configuration based on the current environment (dev or prod).
+  - ✅ In `main.dart`, load the correct environment file (using `flutter_dotenv`) and initialize Firebase with the appropriate configuration based on the current environment (dev or prod).
 
-## Step 3: Build the Video Feed
+## Step 3: Build the Video Feed 🚧
 - **UI Development:**  
-  - Design a responsive feed screen using Flutter widgets (e.g., `ListView.builder`) to display video cards.
-  - Ensure the UI scales across mobile and web.
+  - ✅ Design a responsive feed screen using Flutter widgets (e.g., `ListView.builder`) to display video cards.
+  - ✅ Ensure the UI scales across mobile and web.
 - **Data Integration:**  
   - In Firestore, create a `videos` collection with necessary metadata (title, description, creator ID, video URL, thumbnail URL).
   - Implement real-time querying to fetch and display videos in the feed.

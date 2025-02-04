@@ -1,71 +1,97 @@
 import 'dart:io';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:path/path.dart' as path;
 import 'package:video_player/video_player.dart';
+import '../models/video.dart';
+import 'package:ffmpeg_kit_flutter/ffmpeg_kit.dart';
+import 'package:path_provider/path_provider.dart';
 
 class VideoService {
   final FirebaseStorage _storage = FirebaseStorage.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
-  Future<String> uploadVideo(
-    File videoFile, {
-    String? title,
-    String? description,
-    List<String>? tags,
-    void Function(double progress)? onProgress,
+  Future<Video> uploadVideo({
+    required XFile videoFile,
+    required String title,
+    required String description,
+    required List<String> tags,
+    void Function(double)? onProgress,
   }) async {
-    if (_auth.currentUser == null) {
-      throw 'User must be logged in to upload videos';
-    }
-
     try {
-      // Generate a unique filename
-      final String fileName = '${DateTime.now().millisecondsSinceEpoch}_${path.basename(videoFile.path)}';
-      final String userId = _auth.currentUser!.uid;
-      
-      // Create the storage reference
-      final storageRef = _storage.ref().child('videos/$userId/$fileName');
-      
-      // Start the upload with progress monitoring
-      final UploadTask uploadTask = storageRef.putFile(videoFile);
-      
-      // Monitor upload progress
-      if (onProgress != null) {
-        uploadTask.snapshotEvents.listen((TaskSnapshot snapshot) {
-          final progress = snapshot.bytesTransferred / snapshot.totalBytes;
-          onProgress(progress);
-        });
-      }
-      
-      // Wait for the upload to complete and get the download URL
-      final TaskSnapshot snapshot = await uploadTask;
-      final String videoUrl = await snapshot.ref.getDownloadURL();
+      print('Starting video upload process...');
+      print('File path: ${videoFile.path}');
 
-      // Generate thumbnail
-      final thumbnailUrl = await _generateThumbnail(videoFile);
-      
-      // Create the video document in Firestore
+      final user = _auth.currentUser;
+      if (user == null) throw Exception('User must be logged in to upload videos');
+      print('User authenticated: ${user.uid}');
+
+      // 1. Upload video file to Storage
+      final videoFileName = '${DateTime.now().millisecondsSinceEpoch}_${path.basename(videoFile.path)}';
+      print('Generated filename: $videoFileName');
+
+      final videoRef = _storage.ref().child('videos/$videoFileName');
+      print('Storage reference created');
+
+      UploadTask uploadTask;
+      if (kIsWeb) {
+        final bytes = await videoFile.readAsBytes();
+        uploadTask = videoRef.putData(bytes);
+      } else {
+        uploadTask = videoRef.putFile(File(videoFile.path));
+      }
+      print('Upload task started');
+
+      // Monitor upload progress
+      uploadTask.snapshotEvents.listen((TaskSnapshot snapshot) {
+        final progress = (snapshot.bytesTransferred / snapshot.totalBytes);
+        onProgress?.call(progress);
+        print('Upload progress: ${(progress * 100).toStringAsFixed(2)}%');
+      }, onError: (error) {
+        print('Upload error: $error');
+      });
+
+      final snapshot = await uploadTask;
+      print('Upload completed');
+
+      final videoUrl = await snapshot.ref.getDownloadURL();
+      print('Video URL obtained: $videoUrl');
+
+      // Use the first frame of the video as thumbnail for now
+      // TODO: Generate proper thumbnail
+      final thumbnailUrl = videoUrl;
+      print('Using video URL as thumbnail');
+
+      // 2. Create video document in Firestore
+      print('Creating Firestore document...');
       final videoDoc = await _firestore.collection('videos').add({
-        'userId': userId,
-        'title': title ?? 'Untitled',
-        'description': description ?? '',
+        'title': title,
+        'description': description,
         'videoUrl': videoUrl,
         'thumbnailUrl': thumbnailUrl,
-        'tags': tags ?? [],
+        'creatorId': user.uid,
+        'creatorUsername': user.displayName ?? 'Anonymous',
+        'tags': tags,
         'createdAt': FieldValue.serverTimestamp(),
-        'updatedAt': FieldValue.serverTimestamp(),
-        'views': 0,
-        'likes': 0,
-        'shares': 0,
-        'comments': 0,
+        'likeCount': 0,
+        'commentCount': 0,
+        'viewCount': 0,
       });
+      print('Firestore document created with ID: ${videoDoc.id}');
+
+      // 3. Fetch the created document
+      final docSnapshot = await videoDoc.get();
+      print('Upload process completed successfully');
       
-      return videoDoc.id;
-    } catch (e) {
-      throw 'Failed to upload video: $e';
+      return Video.fromFirestore(docSnapshot);
+    } catch (e, stackTrace) {
+      print('Error during video upload: $e');
+      print('Stack trace: $stackTrace');
+      throw Exception('Failed to upload video: $e');
     }
   }
 
@@ -99,7 +125,7 @@ class VideoService {
       final videoData = videoDoc.data()!;
       
       // Check if the user owns this video
-      if (videoData['userId'] != _auth.currentUser!.uid) {
+      if (videoData['creatorId'] != _auth.currentUser!.uid) {
         throw 'You do not have permission to delete this video';
       }
 
@@ -125,7 +151,7 @@ class VideoService {
   Stream<QuerySnapshot> getVideosForUser(String userId) {
     return _firestore
         .collection('videos')
-        .where('userId', isEqualTo: userId)
+        .where('creatorId', isEqualTo: userId)
         .orderBy('createdAt', descending: true)
         .snapshots();
   }
@@ -143,5 +169,40 @@ class VideoService {
         .where('tags', arrayContains: tag)
         .orderBy('createdAt', descending: true)
         .snapshots();
+  }
+
+  // Fetch videos for the feed
+  Stream<List<Video>> getVideoFeed() {
+    return _firestore
+        .collection('videos')
+        .orderBy('createdAt', descending: true)
+        .limit(10)
+        .snapshots()
+        .map((snapshot) {
+          return snapshot.docs.map((doc) => Video.fromFirestore(doc)).toList();
+        });
+  }
+
+  // Increment view count
+  Future<void> incrementViewCount(String videoId) async {
+    await _firestore.collection('videos').doc(videoId).update({
+      'viewCount': FieldValue.increment(1),
+    });
+  }
+
+  // Get current user's videos
+  Future<List<Video>> getUserVideos() async {
+    final user = _auth.currentUser;
+    if (user == null) {
+      throw Exception('User must be logged in to fetch their videos');
+    }
+
+    final snapshot = await _firestore
+        .collection('videos')
+        .where('creatorId', isEqualTo: user.uid)
+        .orderBy('createdAt', descending: true)
+        .get();
+
+    return snapshot.docs.map((doc) => Video.fromFirestore(doc)).toList();
   }
 } 

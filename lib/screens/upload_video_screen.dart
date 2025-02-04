@@ -1,10 +1,13 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:image_picker/image_picker.dart';
-import 'package:video_player/video_player.dart';
 import '../services/video_service.dart';
+import '../services/video_converter_service.dart';
+import '../services/url_service.dart';
 import '../theme/colors.dart';
 import '../constants/tags.dart';
+import 'package:path/path.dart' as file_path;
 
 class UploadVideoScreen extends StatefulWidget {
   const UploadVideoScreen({super.key});
@@ -15,74 +18,76 @@ class UploadVideoScreen extends StatefulWidget {
 
 class _UploadVideoScreenState extends State<UploadVideoScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _videoService = VideoService();
   final _titleController = TextEditingController();
   final _descriptionController = TextEditingController();
-  final _tagController = TextEditingController();
+  final _videoService = VideoService();
+  final _picker = ImagePicker();
   
-  File? _videoFile;
-  VideoPlayerController? _videoController;
-  List<String> _selectedTags = [];
+  XFile? _videoFile;
   bool _isUploading = false;
-  double _uploadProgress = 0.0;
+  bool _isConverting = false;
   String? _errorMessage;
-
-  // Use the centralized tag list
-  List<String> get _suggestedTags => MinecraftTags.all
-      .where((tag) => !_selectedTags.contains(tag))
-      .toList();
-
-  @override
-  void dispose() {
-    _titleController.dispose();
-    _descriptionController.dispose();
-    _tagController.dispose();
-    _videoController?.dispose();
-    super.dispose();
-  }
+  String? _statusMessage;
+  final Set<String> _selectedTags = {};
+  double _uploadProgress = 0.0;
 
   Future<void> _pickVideo() async {
     try {
-      final ImagePicker picker = ImagePicker();
-      final XFile? video = await picker.pickVideo(
+      final XFile? video = await _picker.pickVideo(
         source: ImageSource.gallery,
         maxDuration: const Duration(minutes: 10),
       );
-
+      
       if (video != null) {
-        _videoController?.dispose();
-        final videoFile = File(video.path);
-        
-        // Initialize video controller for preview
-        final controller = VideoPlayerController.file(videoFile);
-        await controller.initialize();
+        setState(() {
+          _isConverting = true;
+          _statusMessage = 'Checking video format...';
+          _errorMessage = null;
+        });
+
+        if (await VideoConverterService.needsConversion(video)) {
+          setState(() => _statusMessage = 'Converting video to MP4...');
+          final convertedPath = await VideoConverterService.convertToMp4(video);
+          
+          if (convertedPath == null) {
+            setState(() {
+              _errorMessage = 'Failed to convert video';
+              _isConverting = false;
+              _statusMessage = null;
+            });
+            return;
+          }
+          
+          if (kIsWeb) {
+            // For web, convertedPath is a blob URL
+            _videoFile = XFile(convertedPath);
+          } else {
+            // For mobile, convertedPath is a file path
+            _videoFile = XFile(convertedPath);
+          }
+        } else {
+          _videoFile = video;
+        }
+
+        if (!kIsWeb) {
+          final file = File(_videoFile!.path);
+          final size = await file.length();
+          print('Video size: ${(size / 1024 / 1024).toStringAsFixed(2)} MB');
+        }
         
         setState(() {
-          _videoFile = videoFile;
-          _videoController = controller;
-          _errorMessage = null;
+          _isConverting = false;
+          _statusMessage = null;
         });
       }
     } catch (e) {
+      print('Error picking/converting video: $e');
       setState(() {
-        _errorMessage = 'Failed to pick video: $e';
+        _errorMessage = 'Error processing video: $e';
+        _isConverting = false;
+        _statusMessage = null;
       });
     }
-  }
-
-  void _addTag(String tag) {
-    if (tag.isNotEmpty && !_selectedTags.contains(tag)) {
-      setState(() {
-        _selectedTags.add(tag);
-        _tagController.clear();
-      });
-    }
-  }
-
-  void _removeTag(String tag) {
-    setState(() {
-      _selectedTags.remove(tag);
-    });
   }
 
   Future<void> _uploadVideo() async {
@@ -97,15 +102,22 @@ class _UploadVideoScreenState extends State<UploadVideoScreen> {
 
     setState(() {
       _isUploading = true;
+      _uploadProgress = 0.0;
       _errorMessage = null;
     });
 
     try {
+      print('Starting upload...');
+      print('Title: ${_titleController.text}');
+      print('Description length: ${_descriptionController.text.length}');
+      print('Selected tags: ${_selectedTags.join(', ')}');
+      print('Video path: ${_videoFile!.path}');
+      
       await _videoService.uploadVideo(
-        _videoFile!,
+        videoFile: _videoFile!,
         title: _titleController.text,
         description: _descriptionController.text,
-        tags: _selectedTags,
+        tags: _selectedTags.toList(),
         onProgress: (progress) {
           setState(() {
             _uploadProgress = progress;
@@ -117,249 +129,209 @@ class _UploadVideoScreenState extends State<UploadVideoScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Video uploaded successfully!')),
         );
-        // Reset the form
+        
+        // Clean up web resources if needed
+        if (kIsWeb && _videoFile != null) {
+          UrlService.instance.revokeObjectUrl(_videoFile!.path);
+        }
+        
+        // Clear the form
         setState(() {
           _videoFile = null;
-          _videoController?.dispose();
-          _videoController = null;
           _titleController.clear();
           _descriptionController.clear();
           _selectedTags.clear();
-          _isUploading = false;
-          _uploadProgress = 0.0;
         });
       }
     } catch (e) {
+      print('Upload error: $e');
+      setState(() {
+        _errorMessage = 'Failed to upload video: $e';
+      });
+    } finally {
       if (mounted) {
         setState(() {
-          _errorMessage = e.toString();
           _isUploading = false;
         });
       }
     }
   }
 
-  Widget _buildTagChip(String tag) {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        decoration: BoxDecoration(
-          color: MinecraftColors.darkRedstone.withOpacity(0.15),
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              tag,
-              style: TextStyle(
-                color: MinecraftColors.redstone,
-                fontWeight: FontWeight.bold,
-              ),
+  Widget _buildUploadButton() {
+    if (!_isUploading) {
+      return GestureDetector(
+        onTap: _uploadVideo,
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(12),
+          color: AppColors.accent,
+          child: Text(
+            'Upload',
+            style: TextStyle(
+              color: AppColors.background,
+              fontSize: 16,
             ),
-            const SizedBox(width: 8),
-            InkWell(
-              onTap: () => _removeTag(tag),
-              borderRadius: BorderRadius.circular(12),
-              child: Icon(
-                Icons.close,
-                size: 18,
-                color: MinecraftColors.redstone,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildSuggestedTagChip(String tag) {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: _isUploading ? null : () => _addTag(tag),
-          borderRadius: BorderRadius.circular(20),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            decoration: BoxDecoration(
-              color: MinecraftColors.darkRedstone.withOpacity(_isUploading ? 0.08 : 0.15),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Text(
-              tag,
-              style: TextStyle(
-                color: MinecraftColors.redstone.withOpacity(_isUploading ? 0.5 : 1.0),
-                fontWeight: FontWeight.bold,
-              ),
-            ),
+            textAlign: TextAlign.center,
           ),
         ),
+      );
+    }
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      color: AppColors.accent.withOpacity(0.8),
+      child: Column(
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: LinearProgressIndicator(
+              value: _uploadProgress,
+              backgroundColor: AppColors.background.withOpacity(0.2),
+              valueColor: AlwaysStoppedAnimation<Color>(AppColors.accent),
+              minHeight: 8,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Uploading ${(_uploadProgress * 100).toStringAsFixed(1)}%',
+            style: TextStyle(
+              color: AppColors.background,
+              fontSize: 14,
+            ),
+          ),
+        ],
       ),
     );
   }
 
   @override
+  void dispose() {
+    _titleController.dispose();
+    _descriptionController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16.0),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                // Video Preview/Picker
-                Container(
-                  height: 240,
-                  decoration: BoxDecoration(
-                    color: Colors.grey[900],
-                    borderRadius: BorderRadius.circular(8),
+    return SingleChildScrollView(
+      child: Container(
+        color: AppColors.background,
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          children: [
+            // Video Selection
+            GestureDetector(
+              onTap: (_isUploading || _isConverting) ? null : _pickVideo,
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                color: AppColors.accent,
+                child: Text(
+                  _videoFile != null ? file_path.basename(_videoFile!.path) : 'Select Video',
+                  style: TextStyle(
+                    color: AppColors.background,
+                    fontSize: 16,
                   ),
-                  child: _videoController != null
-                      ? ClipRRect(
-                          borderRadius: BorderRadius.circular(8),
-                          child: Stack(
-                            alignment: Alignment.center,
-                            children: [
-                              AspectRatio(
-                                aspectRatio: _videoController!.value.aspectRatio,
-                                child: VideoPlayer(_videoController!),
-                              ),
-                              IconButton(
-                                icon: Icon(
-                                  _videoController!.value.isPlaying
-                                      ? Icons.pause
-                                      : Icons.play_arrow,
-                                ),
-                                onPressed: () {
-                                  setState(() {
-                                    _videoController!.value.isPlaying
-                                        ? _videoController!.pause()
-                                        : _videoController!.play();
-                                  });
-                                },
-                              ),
-                            ],
-                          ),
-                        )
-                      : Center(
-                          child: IconButton(
-                            icon: const Icon(Icons.video_library),
-                            onPressed: _isUploading ? null : _pickVideo,
-                            iconSize: 48,
-                          ),
-                        ),
+                  textAlign: TextAlign.center,
                 ),
-                const SizedBox(height: 16),
+              ),
+            ),
+            const SizedBox(height: 16),
 
-                // Title
-                TextFormField(
-                  controller: _titleController,
-                  decoration: const InputDecoration(
-                    labelText: 'Title',
-                    border: OutlineInputBorder(),
-                  ),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Please enter a title';
-                    }
-                    return null;
-                  },
-                  enabled: !_isUploading,
-                ),
-                const SizedBox(height: 16),
-
-                // Description
-                TextFormField(
-                  controller: _descriptionController,
-                  decoration: const InputDecoration(
-                    labelText: 'Description',
-                    border: OutlineInputBorder(),
-                  ),
-                  maxLines: 3,
-                  enabled: !_isUploading,
-                ),
-                const SizedBox(height: 16),
-
-                // Tags
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    const Text('Tags'),
-                    const SizedBox(height: 8),
-                    Wrap(
-                      spacing: 8,
-                      children: _selectedTags
-                          .map((tag) => _buildTagChip(tag))
-                          .toList(),
+            // Form
+            Form(
+              key: _formKey,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Title
+                  TextFormField(
+                    controller: _titleController,
+                    style: TextStyle(color: AppColors.textPrimary),
+                    decoration: InputDecoration(
+                      labelText: 'Title',
+                      labelStyle: TextStyle(color: AppColors.accent),
+                      enabledBorder: OutlineInputBorder(
+                        borderSide: BorderSide(color: AppColors.accent),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderSide: BorderSide(color: AppColors.accent),
+                      ),
                     ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: TextFormField(
-                            controller: _tagController,
-                            decoration: const InputDecoration(
-                              hintText: 'Add a tag',
-                              border: OutlineInputBorder(),
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Please enter a title';
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 12),
+
+                  // Description
+                  TextFormField(
+                    controller: _descriptionController,
+                    style: TextStyle(color: AppColors.textPrimary),
+                    decoration: InputDecoration(
+                      labelText: 'Description',
+                      labelStyle: TextStyle(color: AppColors.accent),
+                      enabledBorder: OutlineInputBorder(
+                        borderSide: BorderSide(color: AppColors.accent),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderSide: BorderSide(color: AppColors.accent),
+                      ),
+                    ),
+                    maxLines: 2,
+                  ),
+                  const SizedBox(height: 12),
+
+                  // Tags
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: MinecraftTags.all.map((tag) {
+                      final isSelected = _selectedTags.contains(tag);
+                      return GestureDetector(
+                        onTap: () {
+                          setState(() {
+                            if (isSelected) {
+                              _selectedTags.remove(tag);
+                            } else {
+                              _selectedTags.add(tag);
+                            }
+                          });
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          color: isSelected ? AppColors.accent : null,
+                          child: Text(
+                            '#$tag',
+                            style: TextStyle(
+                              color: isSelected ? AppColors.background : AppColors.textSecondary,
                             ),
-                            onFieldSubmitted: _addTag,
-                            enabled: !_isUploading,
                           ),
                         ),
-                        const SizedBox(width: 8),
-                        ElevatedButton(
-                          onPressed: _isUploading
-                              ? null
-                              : () => _addTag(_tagController.text),
-                          child: const Text('Add'),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Wrap(
-                      spacing: 8,
-                      children: _suggestedTags
-                          .map((tag) => _buildSuggestedTagChip(tag))
-                          .toList(),
+                      );
+                    }).toList(),
+                  ),
+
+                  if (_errorMessage != null) ...[
+                    const SizedBox(height: 12),
+                    Text(
+                      _errorMessage!,
+                      style: TextStyle(color: AppColors.textPrimary),
                     ),
                   ],
-                ),
-                const SizedBox(height: 24),
 
-                // Error message
-                if (_errorMessage != null) ...[
-                  Text(
-                    _errorMessage!,
-                    style: const TextStyle(color: Colors.red),
-                    textAlign: TextAlign.center,
-                  ),
                   const SizedBox(height: 16),
+                  
+                  // Upload Button
+                  _buildUploadButton(),
                 ],
-
-                // Upload progress
-                if (_isUploading) ...[
-                  LinearProgressIndicator(value: _uploadProgress),
-                  const SizedBox(height: 16),
-                ],
-
-                // Upload button
-                ElevatedButton(
-                  onPressed: _isUploading ? null : _uploadVideo,
-                  style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                  ),
-                  child: _isUploading
-                      ? const Text('Uploading...')
-                      : const Text('Upload Video'),
-                ),
-              ],
+              ),
             ),
-          ),
+          ],
         ),
       ),
     );

@@ -2,19 +2,19 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 class AuthService {
-  final FirebaseAuth _auth = FirebaseAuth.instance;
+  final auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   // Get current user
-  User? get currentUser => _auth.currentUser;
+  User? get currentUser => auth.currentUser;
 
   // Auth state changes stream
-  Stream<User?> get authStateChanges => _auth.authStateChanges();
+  Stream<User?> get authStateChanges => auth.authStateChanges();
 
   // Sign in with email and password
   Future<UserCredential> signInWithEmailAndPassword(String email, String password) async {
     try {
-      return await _auth.signInWithEmailAndPassword(
+      return await auth.signInWithEmailAndPassword(
         email: email,
         password: password,
       );
@@ -37,7 +37,7 @@ class AuthService {
       }
 
       // Create auth account
-      final credential = await _auth.createUserWithEmailAndPassword(
+      final credential = await auth.createUserWithEmailAndPassword(
         email: email,
         password: password,
       );
@@ -65,7 +65,7 @@ class AuthService {
   // Sign out
   Future<void> signOut() async {
     try {
-      await _auth.signOut();
+      await auth.signOut();
     } catch (e) {
       rethrow;
     }
@@ -74,7 +74,7 @@ class AuthService {
   // Password reset
   Future<void> sendPasswordResetEmail(String email) async {
     try {
-      await _auth.sendPasswordResetEmail(email: email);
+      await auth.sendPasswordResetEmail(email: email);
     } catch (e) {
       rethrow;
     }
