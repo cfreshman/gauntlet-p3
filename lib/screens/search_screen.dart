@@ -1,126 +1,153 @@
 import 'package:flutter/material.dart';
+import '../theme/colors.dart';
+import '../constants/tags.dart';
 
 class SearchScreen extends StatelessWidget {
   const SearchScreen({super.key});
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const SearchBar(),
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-      ),
-      body: CustomScrollView(
-        slivers: [
-          // Trending hashtags
-          SliverToBoxAdapter(
-            child: SizedBox(
-              height: 60,
-              child: ListView.builder(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                itemBuilder: (context, index) {
-                  return Container(
-                    margin: const EdgeInsets.only(right: 8),
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    decoration: BoxDecoration(
-                      color: Colors.grey[900],
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Center(
-                      child: Text(
-                        '#trending_$index',
-                        style: const TextStyle(color: Colors.white),
-                      ),
-                    ),
-                  );
-                },
+  Widget _buildTagChip(String tag, {VoidCallback? onTap}) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(20),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            decoration: BoxDecoration(
+              color: MinecraftColors.darkRedstone.withOpacity(0.15),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Text(
+              '#$tag',
+              style: TextStyle(
+                color: MinecraftColors.redstone,
+                fontWeight: FontWeight.bold,
               ),
             ),
           ),
-          
-          // Video grid
-          SliverPadding(
-            padding: const EdgeInsets.all(8),
-            sliver: SliverGrid(
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 3,
-                mainAxisSpacing: 8,
-                crossAxisSpacing: 8,
-                childAspectRatio: 2/3,
-              ),
-              delegate: SliverChildBuilderDelegate(
-                (context, index) {
-                  return Container(
-                    decoration: BoxDecoration(
-                      color: Colors.grey[900],
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Stack(
-                      fit: StackFit.expand,
-                      children: [
-                        // Placeholder for thumbnail
-                        Center(
-                          child: Icon(
-                            Icons.play_circle_outline,
-                            size: 32,
-                            color: Colors.grey[400],
-                          ),
-                        ),
-                        // View count overlay
-                        Positioned(
-                          left: 8,
-                          bottom: 8,
-                          child: Row(
-                            children: const [
-                              Icon(Icons.play_arrow, size: 12),
-                              SizedBox(width: 4),
-                              Text('1.2K', style: TextStyle(fontSize: 12)),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
-                },
-              ),
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
-}
-
-class SearchBar extends StatelessWidget {
-  const SearchBar({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      height: 40,
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      decoration: BoxDecoration(
-        color: Colors.grey[900],
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Row(
-        children: const [
-          Icon(Icons.search, color: Colors.grey),
-          SizedBox(width: 8),
-          Expanded(
-            child: TextField(
-              decoration: InputDecoration(
-                hintText: 'Search videos',
-                border: InputBorder.none,
-                hintStyle: TextStyle(color: Colors.grey),
+    return Column(
+      children: [
+        // Search bar
+        Padding(
+          padding: const EdgeInsets.all(16),
+          child: TextField(
+            decoration: InputDecoration(
+              hintText: 'Search videos...',
+              prefixIcon: Icon(Icons.search, color: MinecraftColors.darkRedstone),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
               ),
-              style: TextStyle(color: Colors.white),
             ),
           ),
-        ],
-      ),
+        ),
+
+        // Trending hashtags
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: MinecraftTags.all.map((tag) => _buildTagChip(
+                tag,
+                onTap: () {
+                  // TODO: Implement tag selection
+                },
+              )).toList(),
+            ),
+          ),
+        ),
+
+        // Video grid
+        Expanded(
+          child: GridView.builder(
+            padding: const EdgeInsets.all(16),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 3,
+              childAspectRatio: 16 / 9, // Minecraft videos are landscape
+              mainAxisSpacing: 16,
+              crossAxisSpacing: 16,
+            ),
+            itemBuilder: (context, index) {
+              return Container(
+                decoration: BoxDecoration(
+                  color: MinecraftColors.darkRedstone.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    // Thumbnail
+                    Center(
+                      child: Icon(
+                        Icons.play_circle_outline,
+                        size: 32,
+                        color: MinecraftColors.redstone,
+                      ),
+                    ),
+                    // Duration overlay
+                    Positioned(
+                      right: 8,
+                      bottom: 8,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withOpacity(0.5),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          '12:34',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: MinecraftColors.lightSandstone,
+                          ),
+                        ),
+                      ),
+                    ),
+                    // View count overlay
+                    Positioned(
+                      left: 8,
+                      bottom: 8,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withOpacity(0.5),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.visibility_outlined,
+                              size: 12,
+                              color: MinecraftColors.lightSandstone,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              '1.2K',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: MinecraftColors.lightSandstone,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
 } 

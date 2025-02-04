@@ -1,0 +1,5 @@
+# Code Modification Rules
+1. DO NOT remove unrelated code when making changes
+
+2. Package Version Management
+   - Your package version (what you think is the latest package) may be out of date, check manually first 
