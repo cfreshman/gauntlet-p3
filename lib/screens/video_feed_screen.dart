@@ -63,12 +63,16 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
     try {
       await controller.initialize();
       await controller.setLooping(true);
-      await controller.play();
+      if (index == _currentVideoIndex) {
+        await controller.play();
+      }
       if (mounted) {
         setState(() {});
       }
     } catch (e) {
       print('Error initializing video controller: $e');
+      // Remove the controller if initialization failed
+      _controllers.remove(index);
     }
   }
 
@@ -79,9 +83,12 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
     final keysToRemove = _controllers.keys.where((k) => !keysToKeep.contains(k)).toList();
     
     for (final key in keysToRemove) {
-      _controllers[key]?.pause();
-      _controllers[key]?.dispose();
-      _controllers.remove(key);
+      final controller = _controllers[key];
+      if (controller != null) {
+        controller.pause();
+        controller.dispose();
+        _controllers.remove(key);
+      }
     }
   }
 
@@ -186,7 +193,7 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
             controller: _pageController,
             scrollDirection: Axis.vertical,
             itemCount: videos.length,
-            physics: const NeverScrollableScrollPhysics(),
+            physics: const AlwaysScrollableScrollPhysics(),
             pageSnapping: true,
             itemBuilder: (context, index) {
               final video = videos[index];
@@ -216,32 +223,31 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
                   fit: StackFit.expand,
                   children: [
                     // Video Player
-                    _controllers[index]?.value.isInitialized == true
-                        ? GestureDetector(
-                            onTap: () {
-                              setState(() {
-                                if (_controllers[index]!.value.isPlaying) {
-                                  _controllers[index]!.pause();
-                                } else {
-                                  _controllers[index]!.play();
-                                }
-                              });
-                            },
-                            child: FittedBox(
-                              fit: BoxFit.cover,
-                              clipBehavior: Clip.hardEdge,
-                              child: SizedBox(
-                                width: _controllers[index]!.value.size.width,
-                                height: _controllers[index]!.value.size.height,
-                                child: VideoPlayer(_controllers[index]!),
-                              ),
-                            ),
-                          )
-                        : Center(
-                            child: CircularProgressIndicator(
-                              color: AppColors.accent,
-                            ),
+                    if (_controllers[index]?.value.isInitialized == true)
+                      GestureDetector(
+                        onTap: () {
+                          setState(() {
+                            if (_controllers[index]!.value.isPlaying) {
+                              _controllers[index]!.pause();
+                            } else {
+                              _controllers[index]!.play();
+                            }
+                          });
+                        },
+                        child: FittedBox(
+                          fit: BoxFit.cover,
+                          clipBehavior: Clip.hardEdge,
+                          child: SizedBox(
+                            width: _controllers[index]!.value.size.width,
+                            height: _controllers[index]!.value.size.height,
+                            child: VideoPlayer(_controllers[index]!),
                           ),
+                        ),
+                      )
+                    else
+                      Container(
+                        color: AppColors.background,
+                      ),
 
                     // Video Info Overlay
                     Positioned(
@@ -339,46 +345,48 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
                       ),
                     ),
 
-                    // First the invisible touch target
-                    Positioned(
-                      left: 0,
-                      right: 0,
-                      bottom: 0,
-                      child: VideoProgressIndicator(
-                        _controllers[index]!,
-                        allowScrubbing: true,
-                        colors: VideoProgressColors(
-                          playedColor: Colors.transparent,
-                          bufferedColor: Colors.transparent,
-                          backgroundColor: Colors.transparent,
+                    // Progress bar (only show if controller is initialized)
+                    if (_controllers[index]?.value.isInitialized == true) ...[
+                      // First the invisible touch target
+                      Positioned(
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        child: VideoProgressIndicator(
+                          _controllers[index]!,
+                          allowScrubbing: true,
+                          colors: VideoProgressColors(
+                            playedColor: Colors.transparent,
+                            bufferedColor: Colors.transparent,
+                            backgroundColor: Colors.transparent,
+                          ),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
                         ),
-                        padding: const EdgeInsets.symmetric(vertical: 12),  // Large touch target
                       ),
-                    ),
 
-                    // Then the visible progress bar
-                    Positioned(
-                      left: 0,
-                      right: 0,
-                      bottom: 0,
-                      child: VideoProgressIndicator(
-                        _controllers[index]!,
-                        allowScrubbing: true,
-                        colors: VideoProgressColors(
-                          playedColor: AppColors.accent,
-                          bufferedColor: AppColors.accent.withOpacity(0.3),
-                          backgroundColor: AppColors.background.withOpacity(0.5),
+                      // Then the visible progress bar
+                      Positioned(
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        child: VideoProgressIndicator(
+                          _controllers[index]!,
+                          allowScrubbing: true,
+                          colors: VideoProgressColors(
+                            playedColor: AppColors.accent,
+                            bufferedColor: AppColors.accent.withOpacity(0.3),
+                            backgroundColor: AppColors.background.withOpacity(0.5),
+                          ),
+                          padding: EdgeInsets.zero,
                         ),
-                        padding: EdgeInsets.zero,
                       ),
-                    ),
+                    ],
 
                     // Play/Pause Indicator
                     if (_controllers[index]?.value.isInitialized == true)
                       Center(
                         child: AnimatedOpacity(
-                          opacity:
-                              _controllers[index]!.value.isPlaying ? 0.0 : 1.0,
+                          opacity: _controllers[index]!.value.isPlaying ? 0.0 : 1.0,
                           duration: const Duration(milliseconds: 200),
                           child: Container(
                             padding: const EdgeInsets.all(16),

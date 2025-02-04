@@ -84,6 +84,17 @@
       _flutter.loader.loadEntrypoint({
         serviceWorker: {
           serviceWorkerVersion: serviceWorkerVersion,
+        },
+        onEntrypointLoaded: function(engineInitializer) {
+          engineInitializer.initializeEngine().then(function(appRunner) {
+            appRunner.runApp();
+          }).then(function() {
+            // Remove the loading indicator after the app is fully loaded
+            var loadingElement = document.querySelector('#loading');
+            if (loadingElement) {
+              loadingElement.remove();
+            }
+          });
         }
       });
     });

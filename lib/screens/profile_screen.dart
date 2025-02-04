@@ -4,6 +4,7 @@ import '../theme/colors.dart';
 import '../services/video_service.dart';
 import '../models/video.dart';
 import '../extensions/string_extensions.dart';
+import '../widgets/video_preview.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -217,69 +218,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
       itemCount: _userVideos.length,
       itemBuilder: (context, index) {
         final video = _userVideos[index];
-        return Container(
-          height: 100,
-          margin: const EdgeInsets.only(bottom: 16),
-          decoration: BoxDecoration(
-            color: AppColors.background.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Row(
-            children: [
-              // Video thumbnail
-              AspectRatio(
-                aspectRatio: 16 / 9,
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: AppColors.background.withOpacity(0.2),
-                    borderRadius: const BorderRadius.horizontal(
-                      left: Radius.circular(8),
-                    ),
-                    image: video.thumbnailUrl != null
-                        ? DecorationImage(
-                            image: NetworkImage(video.thumbnailUrl!),
-                            fit: BoxFit.cover,
-                          )
-                        : null,
-                  ),
-                  child: video.thumbnailUrl == null
-                      ? Icon(
-                          Icons.play_circle_outline,
-                          size: 32,
-                          color: AppColors.accent,
-                        )
-                      : null,
-                ),
-              ),
-              // Video info
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        video.title.lowercase,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
-                          color: AppColors.textPrimary,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        '${video.viewCount} views'.lowercase,
-                        style: TextStyle(
-                          color: AppColors.textPrimary,
-                          fontSize: 14,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 16),
+          child: SizedBox(
+            height: 180,
+            child: VideoPreview(
+              video: video,
+              showTitle: true,
+              showCreator: false,
+              playlist: _userVideos,
+              playlistIndex: index,
+            ),
           ),
         );
       },

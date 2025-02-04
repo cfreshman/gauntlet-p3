@@ -11,7 +11,12 @@ import 'widgets/loading_indicator.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
-  // Force landscape orientation and set system UI style
+  // Initialize Firebase first
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
+  
+  // Then set up system UI
   await SystemChrome.setPreferredOrientations([
     DeviceOrientation.landscapeLeft,
     DeviceOrientation.landscapeRight,
@@ -29,9 +34,6 @@ void main() async {
     SystemUiMode.immersiveSticky,
   );
   
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
   runApp(const MainApp());
 }
 
