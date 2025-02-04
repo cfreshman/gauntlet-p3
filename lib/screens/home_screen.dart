@@ -62,22 +62,22 @@ class _HomeScreenState extends State<HomeScreen> {
                   NavigationRailDestination(
                     icon: Icon(Icons.upload_outlined),
                     selectedIcon: Icon(Icons.upload),
-                    label: Text('Upload'),
+                    label: Text('upload'),
                   ),
                   NavigationRailDestination(
                     icon: Icon(Icons.play_circle_outline),
                     selectedIcon: Icon(Icons.play_circle_fill),
-                    label: Text('Watch'),
+                    label: Text('watch'),
                   ),
                   NavigationRailDestination(
                     icon: Icon(Icons.search_outlined),
                     selectedIcon: Icon(Icons.search),
-                    label: Text('Search'),
+                    label: Text('search'),
                   ),
                   NavigationRailDestination(
                     icon: Icon(Icons.person_outline),
                     selectedIcon: Icon(Icons.person),
-                    label: Text('Profile'),
+                    label: Text('profile'),
                   ),
                 ],
               ),

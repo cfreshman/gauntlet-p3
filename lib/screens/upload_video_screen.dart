@@ -8,6 +8,7 @@ import '../services/url_service.dart';
 import '../theme/colors.dart';
 import '../constants/tags.dart';
 import 'package:path/path.dart' as file_path;
+import '../extensions/string_extensions.dart';
 
 class UploadVideoScreen extends StatefulWidget {
   const UploadVideoScreen({super.key});
@@ -194,7 +195,7 @@ class _UploadVideoScreenState extends State<UploadVideoScreen> {
           ),
           const SizedBox(height: 8),
           Text(
-            'Uploading ${(_uploadProgress * 100).toStringAsFixed(1)}%',
+            'Uploading ${(_uploadProgress * 100).toStringAsFixed(1)}%'.lowercase,
             style: TextStyle(
               color: AppColors.background,
               fontSize: 14,
@@ -228,7 +229,7 @@ class _UploadVideoScreenState extends State<UploadVideoScreen> {
                 padding: const EdgeInsets.all(12),
                 color: AppColors.accent,
                 child: Text(
-                  _videoFile != null ? file_path.basename(_videoFile!.path) : 'Select Video',
+                  _videoFile != null ? file_path.basename(_videoFile!.path) : 'Select Video'.lowercase,
                   style: TextStyle(
                     color: AppColors.background,
                     fontSize: 16,
@@ -250,7 +251,7 @@ class _UploadVideoScreenState extends State<UploadVideoScreen> {
                     controller: _titleController,
                     style: TextStyle(color: AppColors.textPrimary),
                     decoration: InputDecoration(
-                      labelText: 'Title',
+                      labelText: 'Title'.lowercase,
                       labelStyle: TextStyle(color: AppColors.accent),
                       enabledBorder: OutlineInputBorder(
                         borderSide: BorderSide(color: AppColors.accent),
@@ -273,7 +274,7 @@ class _UploadVideoScreenState extends State<UploadVideoScreen> {
                     controller: _descriptionController,
                     style: TextStyle(color: AppColors.textPrimary),
                     decoration: InputDecoration(
-                      labelText: 'Description',
+                      labelText: 'Description'.lowercase,
                       labelStyle: TextStyle(color: AppColors.accent),
                       enabledBorder: OutlineInputBorder(
                         borderSide: BorderSide(color: AppColors.accent),

@@ -45,39 +45,106 @@ class MainApp extends StatelessWidget {
       title: 'TikBlok',
       theme: ThemeData(
         useMaterial3: true,
-        fontFamily: '.SF Pro Text',
-        colorScheme: ColorScheme.light(
+        brightness: Brightness.dark,
+        fontFamily: 'Menlo',
+        colorScheme: ColorScheme.dark(
           background: AppColors.background,
           primary: AppColors.accent,
           onPrimary: AppColors.background,
-          secondary: AppColors.accent,
+          secondary: AppColors.accentLight,
           onSecondary: AppColors.background,
-          surface: AppColors.background,
+          surface: AppColors.cardBackground,
           onSurface: AppColors.textPrimary,
+          error: AppColors.error,
+          onError: AppColors.textPrimary,
         ),
         scaffoldBackgroundColor: AppColors.background,
+        cardTheme: CardTheme(
+          color: AppColors.cardBackground,
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
         textTheme: TextTheme(
-          bodyLarge: TextStyle(color: AppColors.textPrimary),
-          bodyMedium: TextStyle(color: AppColors.textPrimary),
-          titleLarge: TextStyle(color: AppColors.textPrimary),
+          displayLarge: TextStyle(
+            fontFamily: 'Menlo',
+            color: AppColors.textPrimary,
+            fontSize: 32,
+            fontWeight: FontWeight.bold,
+          ),
+          displayMedium: TextStyle(
+            fontFamily: 'Menlo',
+            color: AppColors.textPrimary,
+            fontSize: 28,
+            fontWeight: FontWeight.bold,
+          ),
+          bodyLarge: TextStyle(
+            fontFamily: 'Menlo',
+            color: AppColors.textPrimary,
+            fontSize: 16,
+            height: 1.5,
+          ),
+          bodyMedium: TextStyle(
+            fontFamily: 'Menlo',
+            color: AppColors.textPrimary,
+            fontSize: 14,
+            height: 1.5,
+          ),
+          titleLarge: TextStyle(
+            fontFamily: 'Menlo',
+            color: AppColors.textPrimary,
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+            height: 1.5,
+          ),
+          labelLarge: TextStyle(
+            fontFamily: 'Menlo',
+            fontSize: 14,
+            height: 1.5,
+            letterSpacing: 0.5,
+          ),
         ),
         inputDecorationTheme: InputDecorationTheme(
           filled: true,
-          fillColor: AppColors.background,
-          labelStyle: TextStyle(color: AppColors.textPrimary),
-          prefixIconColor: AppColors.textPrimary,
+          fillColor: AppColors.inputBackground,
+          labelStyle: TextStyle(
+            fontFamily: 'Menlo',
+            color: AppColors.textSecondary,
+            fontSize: 14,
+          ),
+          hintStyle: TextStyle(
+            fontFamily: 'Menlo',
+            color: AppColors.textSecondary.withOpacity(0.7),
+            fontSize: 14,
+          ),
+          prefixIconColor: AppColors.textSecondary,
           border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(4),
-            borderSide: BorderSide(color: AppColors.accent),
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide.none,
           ),
           enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(4),
-            borderSide: BorderSide(color: AppColors.accent),
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide.none,
           ),
           focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(4),
+            borderRadius: BorderRadius.circular(12),
             borderSide: BorderSide(
               color: AppColors.accent,
+              width: 2,
+            ),
+          ),
+          errorBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide(
+              color: AppColors.error,
+              width: 1,
+            ),
+          ),
+          focusedErrorBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide(
+              color: AppColors.error,
               width: 2,
             ),
           ),
@@ -86,16 +153,43 @@ class MainApp extends StatelessWidget {
           style: FilledButton.styleFrom(
             backgroundColor: AppColors.accent,
             foregroundColor: AppColors.background,
-            minimumSize: const Size(double.infinity, 48),
+            minimumSize: const Size(double.infinity, 52),
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(4),
+              borderRadius: BorderRadius.circular(12),
             ),
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+            elevation: 0,
           ),
         ),
         textButtonTheme: TextButtonThemeData(
           style: TextButton.styleFrom(
             foregroundColor: AppColors.accent,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
           ),
+        ),
+        iconTheme: IconThemeData(
+          color: AppColors.textPrimary,
+          size: 24,
+        ),
+        snackBarTheme: SnackBarThemeData(
+          backgroundColor: AppColors.cardBackground,
+          contentTextStyle: TextStyle(
+            fontFamily: 'Menlo',
+            color: AppColors.textPrimary,
+            fontSize: 14,
+          ),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(8),
+          ),
+          behavior: SnackBarBehavior.floating,
+        ),
+        dividerTheme: DividerThemeData(
+          color: AppColors.divider,
+          thickness: 1,
+          space: 1,
         ),
       ),
       home: StreamBuilder<User?>(

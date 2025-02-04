@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../theme/colors.dart';
 import '../constants/tags.dart';
+import '../models/video.dart';
+import '../extensions/string_extensions.dart';
 
 class SearchScreen extends StatelessWidget {
   const SearchScreen({super.key});
@@ -20,7 +22,7 @@ class SearchScreen extends StatelessWidget {
               borderRadius: BorderRadius.circular(20),
             ),
             child: Text(
-              '#$tag',
+              '#$tag'.lowercase,
               style: TextStyle(
                 color: AppColors.accent,
                 fontWeight: FontWeight.bold,
@@ -46,7 +48,7 @@ class SearchScreen extends StatelessWidget {
             child: TextField(
               style: TextStyle(color: AppColors.textPrimary),
               decoration: InputDecoration(
-                hintText: 'Search videos...',
+                hintText: 'Search videos...'.lowercase,
                 prefixIcon: Icon(Icons.search, color: AppColors.textPrimary),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
@@ -136,7 +138,7 @@ class SearchScreen extends StatelessWidget {
                               ),
                               const SizedBox(width: 4),
                               Text(
-                                '1.2K',
+                                '1.2k views'.lowercase,
                                 style: TextStyle(
                                   fontSize: 12,
                                   color: AppColors.accent,

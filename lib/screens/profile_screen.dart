@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../theme/colors.dart';
 import '../services/video_service.dart';
 import '../models/video.dart';
+import '../extensions/string_extensions.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -86,7 +87,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               const SizedBox(height: 16),
               // Username
               Text(
-                '@$_username',
+                '@$_username'.lowercase,
                 style: const TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.bold,
@@ -96,7 +97,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               const SizedBox(height: 8),
               // Bio
               Text(
-                'Video creator',
+                'Video creator'.lowercase,
                 style: TextStyle(
                   color: AppColors.textPrimary,
                 ),
@@ -142,14 +143,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   children: [
                     if (_userVideos.isNotEmpty) ...[
                       _buildToggleButton(
-                        title: 'Videos',
+                        title: 'Videos'.lowercase,
                         isSelected: _showVideos,
                         onPressed: () => setState(() => _showVideos = true),
                       ),
                       const SizedBox(width: 16),
                     ],
                     _buildToggleButton(
-                      title: 'Playlists',
+                      title: 'Playlists'.lowercase,
                       isSelected: !_showVideos,
                       onPressed: () => setState(() => _showVideos = false),
                     ),
@@ -205,7 +206,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     if (_userVideos.isEmpty) {
       return Center(
         child: Text(
-          'No videos uploaded yet',
+          'No videos uploaded yet'.lowercase,
           style: TextStyle(color: AppColors.textPrimary),
         ),
       );
@@ -259,7 +260,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Text(
-                        video.title,
+                        video.title.lowercase,
                         style: const TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 16,
@@ -268,7 +269,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        '${video.viewCount} views',
+                        '${video.viewCount} views'.lowercase,
                         style: TextStyle(
                           color: AppColors.textPrimary,
                           fontSize: 14,
@@ -325,7 +326,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Text(
-                        'Playlist ${index + 1}',
+                        'Playlist ${index + 1}'.lowercase,
                         style: const TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 16,
@@ -334,7 +335,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        '${(index + 1) * 5} videos',
+                        '${(index + 1) * 5} videos'.lowercase,
                         style: TextStyle(
                           color: AppColors.textPrimary,
                           fontSize: 14,

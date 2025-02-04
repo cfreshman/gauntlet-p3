@@ -258,19 +258,21 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              video.title,
+                              video.title.toLowerCase(),
                               style: TextStyle(
+                                fontFamily: 'Menlo',
                                 color: AppColors.textPrimary,
-                                fontSize: 18,
+                                fontSize: 16,
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
                             const SizedBox(height: 8),
                             Text(
-                              video.description,
+                              video.description.toLowerCase(),
                               style: TextStyle(
+                                fontFamily: 'Menlo',
                                 color: AppColors.textSecondary,
-                                fontSize: 14,
+                                fontSize: 13,
                               ),
                             ),
                             const SizedBox(height: 12),
@@ -290,11 +292,12 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
                                     ),
                                   ),
                                   child: Text(
-                                    '#$tag',
+                                    '#${tag.toLowerCase()}',
                                     style: TextStyle(
+                                      fontFamily: 'Menlo',
                                       color: AppColors.textPrimary,
                                       fontWeight: FontWeight.w500,
-                                      fontSize: 12,
+                                      fontSize: 11,
                                     ),
                                   ),
                                 );
@@ -309,10 +312,11 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
                                 ),
                                 const SizedBox(width: 4),
                                 Text(
-                                  '${video.viewCount}',
+                                  '${video.viewCount}'.toLowerCase(),
                                   style: TextStyle(
+                                    fontFamily: 'Menlo',
                                     color: AppColors.textSecondary,
-                                    fontSize: 12,
+                                    fontSize: 11,
                                   ),
                                 ),
                                 const SizedBox(width: 16),

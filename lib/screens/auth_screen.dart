@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../theme/colors.dart';
 import '../services/auth_service.dart';
+import '../extensions/string_extensions.dart';
 
 class AuthScreen extends StatefulWidget {
   const AuthScreen({super.key});
