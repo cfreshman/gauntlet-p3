@@ -20,6 +20,7 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
   final _authService = AuthService();
   final _pageController = PageController();
   Map<int, VideoPlayerController> _controllers = {};
+  Map<int, bool> _viewCounted = {}; // Track if view has been counted
   int _currentVideoIndex = 0;
   bool _isLoading = false;
 
@@ -33,9 +34,16 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
     final page = _pageController.page?.round() ?? 0;
     if (page != _currentVideoIndex) {
       setState(() => _currentVideoIndex = page);
+      // Pause all videos except the current one
       _controllers.forEach((i, controller) {
-        if (i != page) controller.pause();
+        if (i != page) {
+          controller.pause();
+        }
       });
+      // Play the current video if it exists
+      if (_controllers[page] != null) {
+        _controllers[page]!.play();
+      }
       _cleanupControllers();
     }
   }
@@ -50,19 +58,42 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
     super.dispose();
   }
 
-  Future<void> _initializeController(String videoUrl, int index) async {
+  void _checkVideoProgress(int index, Video video) {
+    if (_controllers[index] == null || _viewCounted[index] == true) return;
+
+    final controller = _controllers[index]!;
+    final duration = controller.value.duration;
+    final position = controller.value.position;
+    final progress = position.inMilliseconds / duration.inMilliseconds;
+
+    // If video is watched 75% and view hasn't been counted yet
+    if (progress >= 0.75 && _viewCounted[index] != true) {
+      _viewCounted[index] = true;
+      _videoService.incrementViewCount(video.id);
+    }
+  }
+
+  Future<void> _initializeController(String videoUrl, int index, Video video) async {
     if (_controllers[index] != null) {
-      // If controller exists, just play it
       await _controllers[index]!.play();
       return;
     }
 
     final controller = VideoPlayerController.network(videoUrl);
     _controllers[index] = controller;
+    _viewCounted[index] = false; // Initialize view count tracking
     
     try {
       await controller.initialize();
       await controller.setLooping(true);
+      
+      // Add listener for progress tracking
+      controller.addListener(() {
+        if (index == _currentVideoIndex) {
+          _checkVideoProgress(index, video);
+        }
+      });
+
       if (index == _currentVideoIndex) {
         await controller.play();
       }
@@ -71,15 +102,14 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
       }
     } catch (e) {
       print('Error initializing video controller: $e');
-      // Remove the controller if initialization failed
       _controllers.remove(index);
+      _viewCounted.remove(index);
     }
   }
 
   void _cleanupControllers() {
     final keysToKeep = {_currentVideoIndex - 1, _currentVideoIndex, _currentVideoIndex + 1};
     
-    // Fix concurrent modification by creating a list of keys to remove
     final keysToRemove = _controllers.keys.where((k) => !keysToKeep.contains(k)).toList();
     
     for (final key in keysToRemove) {
@@ -88,6 +118,7 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
         controller.pause();
         controller.dispose();
         _controllers.remove(key);
+        _viewCounted.remove(key); // Clean up view count tracking
       }
     }
   }
@@ -125,7 +156,7 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
         },
       );
 
-      await _initializeController(newVideo.videoUrl, _controllers.length);
+      await _initializeController(newVideo.videoUrl, _controllers.length, newVideo);
 
       if (mounted) {
         setState(() => _isLoading = false);
@@ -169,22 +200,65 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
           if (snapshot.hasError) {
             return Center(
               child: Text(
-                'Error: ${snapshot.error}',
+                'Error loading videos',
                 style: TextStyle(color: AppColors.textPrimary),
               ),
             );
           }
 
           if (!snapshot.hasData) {
-            return const LoadingIndicator();
+            return const Center(child: LoadingIndicator());
           }
 
           final videos = snapshot.data!;
+          
           if (videos.isEmpty) {
             return Center(
-              child: Text(
-                'No videos yet',
-                style: TextStyle(color: AppColors.textPrimary),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.video_library_outlined,
+                    size: 64,
+                    color: AppColors.accent,
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'no videos yet'.toLowerCase(),
+                    style: TextStyle(
+                      color: AppColors.textPrimary,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'be the first to upload!'.toLowerCase(),
+                    style: TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 14,
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  TextButton(
+                    onPressed: _pickVideo,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                      decoration: BoxDecoration(
+                        color: AppColors.accent,
+                        borderRadius: BorderRadius.circular(24),
+                      ),
+                      child: Text(
+                        'upload video'.toLowerCase(),
+                        style: TextStyle(
+                          color: AppColors.background,
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             );
           }
@@ -192,26 +266,83 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
           return PageView.builder(
             controller: _pageController,
             scrollDirection: Axis.vertical,
-            itemCount: videos.length,
-            physics: const AlwaysScrollableScrollPhysics(),
-            pageSnapping: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: videos.length + 1,
+            onPageChanged: (index) {
+              setState(() {
+                _currentVideoIndex = index;
+              });
+            },
             itemBuilder: (context, index) {
+              if (index == videos.length) {
+                return Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.check_circle_outline,
+                        size: 64,
+                        color: AppColors.accent,
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        'you\'re all caught up!'.toLowerCase(),
+                        style: TextStyle(
+                          color: AppColors.textPrimary,
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'check back later for more videos'.toLowerCase(),
+                        style: TextStyle(
+                          color: AppColors.textSecondary,
+                          fontSize: 14,
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                      TextButton(
+                        onPressed: () => _pageController.animateToPage(
+                          0,
+                          duration: const Duration(milliseconds: 500),
+                          curve: Curves.easeInOut,
+                        ),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                          decoration: BoxDecoration(
+                            color: AppColors.accent,
+                            borderRadius: BorderRadius.circular(24),
+                          ),
+                          child: Text(
+                            'back to top'.toLowerCase(),
+                            style: TextStyle(
+                              color: AppColors.background,
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }
+
               final video = videos[index];
               if (index == _currentVideoIndex) {
-                _initializeController(video.videoUrl, index);
+                _initializeController(video.videoUrl, index, video);
               }
 
               return GestureDetector(
                 onVerticalDragEnd: (details) {
-                  if (details.primaryVelocity! < 0 && index < videos.length - 1) {
-                    // Swipe up - next video
+                  if (details.primaryVelocity! < 0 && index < videos.length) {
                     _pageController.animateToPage(
                       index + 1,
                       duration: const Duration(milliseconds: 300),
                       curve: Curves.easeOut,
                     );
                   } else if (details.primaryVelocity! > 0 && index > 0) {
-                    // Swipe down - previous video
                     _pageController.animateToPage(
                       index - 1,
                       duration: const Duration(milliseconds: 300),
@@ -222,7 +353,6 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
                 child: Stack(
                   fit: StackFit.expand,
                   children: [
-                    // Video Player
                     if (_controllers[index]?.value.isInitialized == true)
                       GestureDetector(
                         onTap: () {
@@ -249,7 +379,6 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
                         color: AppColors.background,
                       ),
 
-                    // Video Info Overlay
                     Positioned(
                       left: 16,
                       right: 16,
@@ -345,9 +474,7 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
                       ),
                     ),
 
-                    // Progress bar (only show if controller is initialized)
                     if (_controllers[index]?.value.isInitialized == true) ...[
-                      // First the invisible touch target
                       Positioned(
                         left: 0,
                         right: 0,
@@ -364,7 +491,6 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
                         ),
                       ),
 
-                      // Then the visible progress bar
                       Positioned(
                         left: 0,
                         right: 0,
@@ -382,7 +508,6 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
                       ),
                     ],
 
-                    // Play/Pause Indicator
                     if (_controllers[index]?.value.isInitialized == true)
                       Center(
                         child: AnimatedOpacity(

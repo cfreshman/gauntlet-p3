@@ -202,12 +202,9 @@ class VideoService {
   Stream<List<Video>> getVideoFeed() {
     return _firestore
         .collection('videos')
-        .orderBy('createdAt', descending: true)
-        .limit(10)
+        .orderBy('createdAt', descending: true)  // Latest videos first
         .snapshots()
-        .map((snapshot) {
-          return snapshot.docs.map((doc) => Video.fromFirestore(doc)).toList();
-        });
+        .map((snapshot) => snapshot.docs.map((doc) => Video.fromFirestore(doc)).toList());
   }
 
   // Increment view count
