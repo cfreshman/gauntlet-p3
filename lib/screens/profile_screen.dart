@@ -226,8 +226,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
               video: video,
               showTitle: true,
               showCreator: false,
-              playlist: _userVideos,
-              playlistIndex: index,
+              videos: _userVideos,
+              currentIndex: index,
             ),
           ),
         );

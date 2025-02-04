@@ -253,4 +253,56 @@ class VideoService {
     final snapshot = await videosQuery.get();
     return snapshot.docs.map((doc) => Video.fromFirestore(doc)).toList();
   }
+
+  // Like/Unlike a video
+  Future<void> toggleLike(String videoId) async {
+    final user = _auth.currentUser;
+    if (user == null) throw Exception('User must be logged in to like videos');
+
+    final likeRef = _firestore
+        .collection('videos')
+        .doc(videoId)
+        .collection('likes')
+        .doc(user.uid);
+
+    final likeDoc = await likeRef.get();
+    
+    await _firestore.runTransaction((transaction) async {
+      final videoRef = _firestore.collection('videos').doc(videoId);
+      final videoDoc = await transaction.get(videoRef);
+
+      if (!videoDoc.exists) throw Exception('Video not found');
+
+      if (likeDoc.exists) {
+        // Unlike
+        transaction.delete(likeRef);
+        transaction.update(videoRef, {
+          'likeCount': FieldValue.increment(-1),
+        });
+      } else {
+        // Like
+        transaction.set(likeRef, {
+          'userId': user.uid,
+          'createdAt': FieldValue.serverTimestamp(),
+        });
+        transaction.update(videoRef, {
+          'likeCount': FieldValue.increment(1),
+        });
+      }
+    });
+  }
+
+  // Check if user has liked a video
+  Stream<bool> hasLiked(String videoId) {
+    final user = _auth.currentUser;
+    if (user == null) return Stream.value(false);
+
+    return _firestore
+        .collection('videos')
+        .doc(videoId)
+        .collection('likes')
+        .doc(user.uid)
+        .snapshots()
+        .map((doc) => doc.exists);
+  }
 } 

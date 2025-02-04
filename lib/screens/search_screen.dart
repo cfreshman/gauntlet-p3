@@ -162,8 +162,8 @@ class _SearchScreenState extends State<SearchScreen> {
                             video: video,
                             showTitle: false,
                             showCreator: false,
-                            playlist: _videos,
-                            playlistIndex: index,
+                            videos: _videos,
+                            currentIndex: index,
                           );
                         },
                       ),

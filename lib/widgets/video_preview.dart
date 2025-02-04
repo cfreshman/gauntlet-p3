@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import '../models/video.dart';
 import '../theme/colors.dart';
 import '../extensions/string_extensions.dart';
-import '../screens/video_player_screen.dart';
+import '../screens/video_screen.dart';
+import '../screens/video_feed_screen.dart';
 
 class VideoPreview extends StatelessWidget {
   final Video video;
@@ -10,8 +11,8 @@ class VideoPreview extends StatelessWidget {
   final bool showCreator;
   final double? width;
   final double? height;
-  final List<Video>? playlist;
-  final int? playlistIndex;
+  final List<Video>? videos;  // The current list of videos being displayed
+  final int? currentIndex;    // Position of this video in the list
 
   const VideoPreview({
     super.key,
@@ -20,18 +21,17 @@ class VideoPreview extends StatelessWidget {
     this.showCreator = false,
     this.width,
     this.height,
-    this.playlist,
-    this.playlistIndex,
+    this.videos,
+    this.currentIndex,
   });
 
   void _openVideo(BuildContext context) {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => VideoPlayerScreen(
-          video: video,
-          playlist: playlist,
-          initialIndex: playlistIndex ?? 0,
+        builder: (context) => VideoFeedScreen(
+          videos: videos ?? [video],
+          initialIndex: currentIndex ?? 0,
         ),
       ),
     );
