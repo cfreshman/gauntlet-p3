@@ -32,6 +32,8 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
   int _currentVideoIndex = 0;
   bool _isLoading = false;
   bool _showComments = false;
+  final Map<String, int> _localLikeCounts = {};
+  final Set<String> _likeInProgress = {};
 
   @override
   void initState() {
@@ -300,14 +302,15 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
                               onCommentTap: _toggleComments,
                             ),
 
+                          // Video info overlay at bottom
                           Positioned(
                             left: 16,
-                            right: 16,
+                            right: 96, // Make room for controls on right
                             bottom: 16,
                             child: Container(
                               padding: const EdgeInsets.all(16),
                               decoration: BoxDecoration(
-                                color: AppColors.background.withOpacity(0.9),
+                                color: AppColors.background.withOpacity(0.5),
                                 borderRadius: BorderRadius.circular(12),
                               ),
                               child: Column(
@@ -322,16 +325,38 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
                                       fontWeight: FontWeight.bold,
                                     ),
                                   ),
-                                  const SizedBox(height: 8),
-                                  Text(
-                                    video.description.toLowerCase(),
-                                    style: TextStyle(
-                                      color: AppColors.textSecondary,
-                                      fontSize: 14,
-                                    ),
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
+                                  const SizedBox(height: 4),
+                                  // View count
+                                  Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(
+                                        Icons.remove_red_eye_outlined,
+                                        size: 16,
+                                        color: AppColors.textSecondary,
+                                      ),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        '${video.viewCount} views'.toLowerCase(),
+                                        style: TextStyle(
+                                          color: AppColors.textSecondary,
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                    ],
                                   ),
+                                  if (video.description.isNotEmpty) ...[
+                                    const SizedBox(height: 8),
+                                    Text(
+                                      video.description.toLowerCase(),
+                                      style: TextStyle(
+                                        color: AppColors.textPrimary,
+                                        fontSize: 14,
+                                      ),
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ],
                                   const SizedBox(height: 12),
                                   Wrap(
                                     spacing: 8,
@@ -360,91 +385,120 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
                                       );
                                     }).toList(),
                                   ),
-                                  const SizedBox(height: 8),
-                                  Row(
-                                    children: [
-                                      Icon(
-                                        Icons.remove_red_eye_outlined,
-                                        size: 16,
-                                        color: AppColors.textSecondary,
-                                      ),
-                                      const SizedBox(width: 4),
-                                      Text(
-                                        '${video.viewCount}'.toLowerCase(),
-                                        style: TextStyle(
-                                          color: AppColors.textSecondary,
-                                          fontSize: 12,
-                                        ),
-                                      ),
-                                      const SizedBox(width: 16),
-                                      GestureDetector(
-                                        onTap: () async {
-                                          try {
-                                            await _videoService.toggleLike(video.id);
-                                          } catch (e) {
-                                            if (mounted) {
-                                              ScaffoldMessenger.of(context).showSnackBar(
-                                                SnackBar(
-                                                  content: Text(
-                                                    e.toString(),
-                                                    style: TextStyle(color: AppColors.background),
-                                                  ),
-                                                  backgroundColor: AppColors.error,
-                                                  behavior: SnackBarBehavior.floating,
+                                ],
+                              ),
+                            ),
+                          ),
+
+                          // Right side controls
+                          Positioned(
+                            right: 16,
+                            bottom: 16,
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                // Like button
+                                StreamBuilder<bool>(
+                                  stream: _videoService.hasLiked(video.id),
+                                  builder: (context, snapshot) {
+                                    final hasLiked = snapshot.data ?? false;
+                                    final likeCount = _localLikeCounts[video.id] ?? video.likeCount;
+                                    
+                                    return GestureDetector(
+                                      onTap: _likeInProgress.contains(video.id) ? null : () async {
+                                        // Prevent rapid taps
+                                        if (_likeInProgress.contains(video.id)) return;
+                                        _likeInProgress.add(video.id);
+                                        
+                                        // Update local like count
+                                        setState(() {
+                                          _localLikeCounts[video.id] = likeCount + (hasLiked ? -1 : 1);
+                                        });
+                                        
+                                        try {
+                                          await _videoService.toggleLike(video.id);
+                                        } catch (e) {
+                                          // Revert on error
+                                          setState(() {
+                                            _localLikeCounts[video.id] = likeCount;
+                                          });
+                                          
+                                          if (mounted) {
+                                            ScaffoldMessenger.of(context).showSnackBar(
+                                              SnackBar(
+                                                content: Text(
+                                                  e.toString(),
+                                                  style: TextStyle(color: AppColors.background),
                                                 ),
-                                              );
-                                            }
-                                          }
-                                        },
-                                        child: StreamBuilder<bool>(
-                                          stream: _videoService.hasLiked(video.id),
-                                          builder: (context, snapshot) {
-                                            final hasLiked = snapshot.data ?? false;
-                                            return Row(
-                                              children: [
-                                                Icon(
-                                                  hasLiked ? Icons.favorite : Icons.favorite_border,
-                                                  size: 16,
-                                                  color: hasLiked ? AppColors.accent : AppColors.textSecondary,
-                                                ),
-                                                const SizedBox(width: 4),
-                                                Text(
-                                                  '${video.likeCount}'.toLowerCase(),
-                                                  style: TextStyle(
-                                                    color: hasLiked ? AppColors.accent : AppColors.textSecondary,
-                                                    fontSize: 12,
-                                                  ),
-                                                ),
-                                              ],
+                                                backgroundColor: AppColors.error,
+                                                behavior: SnackBarBehavior.floating,
+                                              ),
                                             );
-                                          },
+                                          }
+                                        } finally {
+                                          if (mounted) {
+                                            _likeInProgress.remove(video.id);
+                                          }
+                                        }
+                                      },
+                                      child: Container(
+                                        padding: const EdgeInsets.all(12),
+                                        decoration: BoxDecoration(
+                                          color: AppColors.background.withOpacity(0.5),
+                                          borderRadius: BorderRadius.circular(24),
                                         ),
-                                      ),
-                                      const SizedBox(width: 16),
-                                      GestureDetector(
-                                        onTap: _toggleComments,
-                                        child: Row(
+                                        child: Column(
                                           children: [
                                             Icon(
-                                              Icons.comment_outlined,
-                                              size: 16,
-                                              color: _showComments ? AppColors.accent : AppColors.textSecondary,
+                                              hasLiked ? Icons.favorite : Icons.favorite_border,
+                                              size: 28,
+                                              color: hasLiked ? AppColors.accent : AppColors.textPrimary,
                                             ),
-                                            const SizedBox(width: 4),
+                                            const SizedBox(height: 4),
                                             Text(
-                                              '${video.commentCount}'.toLowerCase(),
+                                              '$likeCount'.toLowerCase(),
                                               style: TextStyle(
-                                                color: _showComments ? AppColors.accent : AppColors.textSecondary,
-                                                fontSize: 12,
+                                                color: hasLiked ? AppColors.accent : AppColors.textPrimary,
+                                                fontSize: 14,
                                               ),
                                             ),
                                           ],
                                         ),
                                       ),
-                                    ],
+                                    );
+                                  },
+                                ),
+                                const SizedBox(height: 12),
+
+                                // Comment button
+                                GestureDetector(
+                                  onTap: _toggleComments,
+                                  child: Container(
+                                    padding: const EdgeInsets.all(12),
+                                    decoration: BoxDecoration(
+                                      color: AppColors.background.withOpacity(0.5),
+                                      borderRadius: BorderRadius.circular(24),
+                                    ),
+                                    child: Column(
+                                      children: [
+                                        Icon(
+                                          Icons.comment_outlined,
+                                          size: 28,
+                                          color: _showComments ? AppColors.accent : AppColors.textPrimary,
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          '${video.commentCount}'.toLowerCase(),
+                                          style: TextStyle(
+                                            color: _showComments ? AppColors.accent : AppColors.textPrimary,
+                                            fontSize: 14,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
                                   ),
-                                ],
-                              ),
+                                ),
+                              ],
                             ),
                           ),
                         ],
@@ -454,12 +508,25 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
                 ),
 
                 if (_showComments && _currentVideoIndex < videos.length)
-                  Positioned.fill(
+                  Positioned(
+                    right: 0,  // Align to right side
+                    top: 0,
+                    bottom: 0,
+                    width: MediaQuery.of(context).size.width * 0.6,  // Take up 60% of screen width
                     child: AnimatedOpacity(
                       duration: const Duration(milliseconds: 200),
                       opacity: _showComments ? 1.0 : 0.0,
                       child: Container(
-                        color: AppColors.background,
+                        decoration: BoxDecoration(
+                          color: AppColors.background,
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.2),
+                              blurRadius: 8,
+                              offset: const Offset(-2, 0),
+                            ),
+                          ],
+                        ),
                         child: SafeArea(
                           child: Column(
                             children: [
