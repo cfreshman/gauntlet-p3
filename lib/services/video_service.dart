@@ -7,6 +7,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:path/path.dart' as path;
 import 'package:video_player/video_player.dart';
 import '../models/video.dart';
+import '../models/comment.dart';
 import 'package:ffmpeg_kit_flutter/ffmpeg_kit.dart';
 import 'package:path_provider/path_provider.dart';
 
@@ -14,6 +15,9 @@ class VideoService {
   final FirebaseStorage _storage = FirebaseStorage.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
+
+  // Add getter for firestore
+  FirebaseFirestore get firestore => _firestore;
 
   Future<Video> uploadVideo({
     required XFile videoFile,
@@ -304,5 +308,156 @@ class VideoService {
         .doc(user.uid)
         .snapshots()
         .map((doc) => doc.exists);
+  }
+
+  // Add a comment to a video
+  Future<Comment> addComment(String videoId, String text) async {
+    final user = _auth.currentUser;
+    if (user == null) {
+      throw Exception('User must be logged in to comment');
+    }
+
+    try {
+      // Create the comment document
+      final commentDoc = await _firestore
+          .collection('videos')
+          .doc(videoId)
+          .collection('comments')
+          .add({
+        'videoId': videoId,
+        'userId': user.uid,
+        'username': user.displayName ?? 'Anonymous',
+        'userPhotoUrl': user.photoURL,
+        'text': text,
+        'createdAt': FieldValue.serverTimestamp(),
+        'likeCount': 0,
+        'likedBy': [],
+      });
+
+      // Increment comment count on the video
+      await _firestore.collection('videos').doc(videoId).update({
+        'commentCount': FieldValue.increment(1),
+      });
+
+      // Fetch the created comment
+      final snapshot = await commentDoc.get();
+      return Comment.fromFirestore(snapshot);
+    } catch (e) {
+      throw Exception('Failed to add comment: $e');
+    }
+  }
+
+  // Get comments for a video
+  Stream<List<Comment>> getVideoComments(String videoId) {
+    return _firestore
+        .collection('videos')
+        .doc(videoId)
+        .collection('comments')
+        .orderBy('createdAt', descending: true)
+        .snapshots()
+        .map((snapshot) => 
+            snapshot.docs.map((doc) => Comment.fromFirestore(doc)).toList());
+  }
+
+  // Delete a comment
+  Future<void> deleteComment(String videoId, String commentId) async {
+    final user = _auth.currentUser;
+    if (user == null) {
+      throw Exception('User must be logged in to delete comments');
+    }
+
+    try {
+      // Get the comment document
+      final commentDoc = await _firestore
+          .collection('videos')
+          .doc(videoId)
+          .collection('comments')
+          .doc(commentId)
+          .get();
+
+      if (!commentDoc.exists) {
+        throw Exception('Comment not found');
+      }
+
+      final commentData = commentDoc.data()!;
+      
+      // Check if the user owns this comment or the video
+      final videoDoc = await _firestore.collection('videos').doc(videoId).get();
+      final videoData = videoDoc.data()!;
+      
+      if (commentData['userId'] != user.uid && videoData['creatorId'] != user.uid) {
+        throw Exception('You do not have permission to delete this comment');
+      }
+
+      // Delete the comment
+      await commentDoc.reference.delete();
+
+      // Decrement comment count on the video
+      await _firestore.collection('videos').doc(videoId).update({
+        'commentCount': FieldValue.increment(-1),
+      });
+    } catch (e) {
+      throw Exception('Failed to delete comment: $e');
+    }
+  }
+
+  // Toggle like on a comment
+  Future<void> toggleCommentLike(String videoId, String commentId) async {
+    final user = _auth.currentUser;
+    if (user == null) {
+      throw Exception('User must be logged in to like comments');
+    }
+
+    final commentRef = _firestore
+        .collection('videos')
+        .doc(videoId)
+        .collection('comments')
+        .doc(commentId);
+
+    try {
+      await _firestore.runTransaction((transaction) async {
+        final commentDoc = await transaction.get(commentRef);
+        
+        if (!commentDoc.exists) {
+          throw Exception('Comment not found');
+        }
+
+        final likedBy = List<String>.from(commentDoc.data()!['likedBy'] ?? []);
+        
+        if (likedBy.contains(user.uid)) {
+          // Unlike
+          likedBy.remove(user.uid);
+          transaction.update(commentRef, {
+            'likeCount': FieldValue.increment(-1),
+            'likedBy': likedBy,
+          });
+        } else {
+          // Like
+          likedBy.add(user.uid);
+          transaction.update(commentRef, {
+            'likeCount': FieldValue.increment(1),
+            'likedBy': likedBy,
+          });
+        }
+      });
+    } catch (e) {
+      throw Exception('Failed to toggle comment like: $e');
+    }
+  }
+
+  // Check if user has liked a comment
+  Stream<bool> hasLikedComment(String videoId, String commentId) {
+    final user = _auth.currentUser;
+    if (user == null) return Stream.value(false);
+
+    return _firestore
+        .collection('videos')
+        .doc(videoId)
+        .collection('comments')
+        .doc(commentId)
+        .snapshots()
+        .map((doc) => 
+            doc.exists && 
+            (doc.data()?['likedBy'] as List<dynamic>?)?.contains(user.uid) == true);
   }
 } 

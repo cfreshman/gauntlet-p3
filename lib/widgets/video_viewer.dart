@@ -10,6 +10,7 @@ class VideoViewer extends StatefulWidget {
   final bool showControls;
   final bool isInFeed;
   final VoidCallback? onVideoEnd;
+  final VoidCallback? onCommentTap;
 
   const VideoViewer({
     super.key,
@@ -18,6 +19,7 @@ class VideoViewer extends StatefulWidget {
     this.showControls = true,
     this.isInFeed = false,
     this.onVideoEnd,
+    this.onCommentTap,
   });
 
   @override
@@ -28,6 +30,7 @@ class _VideoViewerState extends State<VideoViewer> {
   late VideoPlayerController _controller;
   final _videoService = VideoService();
   bool _viewCounted = false;
+  bool _showOverlay = false;
 
   @override
   void initState() {
@@ -72,6 +75,23 @@ class _VideoViewerState extends State<VideoViewer> {
     }
   }
 
+  void _toggleOverlay() {
+    setState(() {
+      _showOverlay = !_showOverlay;
+    });
+
+    // Auto-hide overlay after 3 seconds if showing
+    if (_showOverlay) {
+      Future.delayed(const Duration(seconds: 3), () {
+        if (mounted) {
+          setState(() {
+            _showOverlay = false;
+          });
+        }
+      });
+    }
+  }
+
   @override
   void dispose() {
     _controller.removeListener(_handleVideoProgress);
@@ -92,6 +112,7 @@ class _VideoViewerState extends State<VideoViewer> {
 
     return GestureDetector(
       onTap: () {
+        _toggleOverlay();
         setState(() {
           if (_controller.value.isPlaying) {
             _controller.pause();
@@ -113,56 +134,135 @@ class _VideoViewerState extends State<VideoViewer> {
             ),
           ),
           if (widget.showControls) ...[
-            // Progress bar background (invisible touch target)
-            Positioned(
-              left: 0,
-              right: 0,
-              bottom: 0,
-              child: VideoProgressIndicator(
-                _controller,
-                allowScrubbing: true,
-                colors: VideoProgressColors(
-                  playedColor: Colors.transparent,
-                  bufferedColor: Colors.transparent,
-                  backgroundColor: Colors.transparent,
-                ),
-                padding: const EdgeInsets.symmetric(vertical: 12),
-              ),
-            ),
-
-            // Visible progress bar
-            Positioned(
-              left: 0,
-              right: 0,
-              bottom: 0,
-              child: VideoProgressIndicator(
-                _controller,
-                allowScrubbing: true,
-                colors: VideoProgressColors(
-                  playedColor: AppColors.accent,
-                  bufferedColor: AppColors.accent.withOpacity(0.3),
-                  backgroundColor: AppColors.background.withOpacity(0.5),
-                ),
-                padding: EdgeInsets.zero,
-              ),
-            ),
-
-            // Play/Pause indicator
-            Center(
-              child: AnimatedOpacity(
-                opacity: _controller.value.isPlaying ? 0.0 : 1.0,
-                duration: const Duration(milliseconds: 200),
-                child: Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: AppColors.background.withOpacity(0.8),
-                    borderRadius: BorderRadius.circular(50),
+            // Video overlay controls
+            AnimatedOpacity(
+              opacity: _showOverlay ? 1.0 : 0.0,
+              duration: const Duration(milliseconds: 200),
+              child: Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Colors.black.withOpacity(0.7),
+                      Colors.transparent,
+                      Colors.transparent,
+                      Colors.black.withOpacity(0.7),
+                    ],
                   ),
-                  child: Icon(
-                    _controller.value.isPlaying ? Icons.pause : Icons.play_arrow,
-                    size: 50,
-                    color: AppColors.accent,
-                  ),
+                ),
+                child: Stack(
+                  children: [
+                    // Right side controls
+                    if (!widget.isInFeed)
+                      Positioned(
+                        right: 8,
+                        bottom: 80,
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            // Like button
+                            StreamBuilder<bool>(
+                              stream: _videoService.hasLiked(widget.video.id),
+                              builder: (context, snapshot) {
+                                final hasLiked = snapshot.data ?? false;
+                                return _buildActionButton(
+                                  icon: hasLiked ? Icons.favorite : Icons.favorite_border,
+                                  label: widget.video.likeCount.toString(),
+                                  color: hasLiked ? AppColors.accent : Colors.white,
+                                  onTap: () => _videoService.toggleLike(widget.video.id),
+                                );
+                              },
+                            ),
+                            const SizedBox(height: 16),
+                            // Comment button
+                            StreamBuilder<bool>(
+                              stream: Stream.value(true), // Always build
+                              builder: (context, _) {
+                                return _buildActionButton(
+                                  icon: Icons.comment_outlined,
+                                  label: widget.video.commentCount.toString(),
+                                  color: Colors.white,
+                                  onTap: () {
+                                    // Keep overlay visible when opening comments
+                                    setState(() {
+                                      _showOverlay = true;
+                                    });
+                                    widget.onCommentTap?.call();
+                                  },
+                                );
+                              },
+                            ),
+                          ],
+                        ),
+                      ),
+
+                    // Progress bar at bottom
+                    Positioned(
+                      left: 0,
+                      right: 0,
+                      bottom: 0,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          // Progress bar
+                          VideoProgressIndicator(
+                            _controller,
+                            allowScrubbing: true,
+                            colors: VideoProgressColors(
+                              playedColor: AppColors.accent,
+                              bufferedColor: AppColors.accent.withOpacity(0.3),
+                              backgroundColor: AppColors.background.withOpacity(0.5),
+                            ),
+                            padding: EdgeInsets.zero,
+                          ),
+                          // Time indicator
+                          Padding(
+                            padding: const EdgeInsets.all(8.0),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  _formatDuration(_controller.value.position),
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                                Text(
+                                  _formatDuration(_controller.value.duration),
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    // Play/Pause indicator
+                    Center(
+                      child: AnimatedOpacity(
+                        opacity: !_controller.value.isPlaying && _showOverlay ? 1.0 : 0.0,
+                        duration: const Duration(milliseconds: 200),
+                        child: Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: AppColors.background.withOpacity(0.8),
+                            borderRadius: BorderRadius.circular(50),
+                          ),
+                          child: Icon(
+                            _controller.value.isPlaying ? Icons.pause : Icons.play_arrow,
+                            size: 50,
+                            color: AppColors.accent,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -170,5 +270,48 @@ class _VideoViewerState extends State<VideoViewer> {
         ],
       ),
     );
+  }
+
+  Widget _buildActionButton({
+    required IconData icon,
+    required String label,
+    Color color = Colors.white,
+    VoidCallback? onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: AppColors.background.withOpacity(0.5),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              icon,
+              color: color,
+              size: 24,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            label.toLowerCase(),
+            style: TextStyle(
+              color: color,
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _formatDuration(Duration duration) {
+    String twoDigits(int n) => n.toString().padLeft(2, '0');
+    final minutes = twoDigits(duration.inMinutes.remainder(60));
+    final seconds = twoDigits(duration.inSeconds.remainder(60));
+    return '$minutes:$seconds';
   }
 } 
