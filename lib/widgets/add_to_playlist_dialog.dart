@@ -19,6 +19,7 @@ class _AddToPlaylistDialogState extends State<AddToPlaylistDialog> {
   final _playlistService = PlaylistService();
   final _nameController = TextEditingController();
   bool _isCreatingPlaylist = false;
+  bool _isLoading = false;
 
   @override
   void dispose() {
@@ -55,6 +56,11 @@ class _AddToPlaylistDialogState extends State<AddToPlaylistDialog> {
 
   Future<void> _toggleInPlaylist(Playlist playlist) async {
     final isInPlaylist = playlist.videoIds.contains(widget.videoId);
+    
+    setState(() {
+      _isLoading = true;
+    });
+
     try {
       if (isInPlaylist) {
         await _playlistService.removeVideoFromPlaylist(playlist.id, widget.videoId);
@@ -81,6 +87,9 @@ class _AddToPlaylistDialogState extends State<AddToPlaylistDialog> {
       }
     } catch (e) {
       if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('failed to update playlist: $e'),
@@ -98,7 +107,11 @@ class _AddToPlaylistDialogState extends State<AddToPlaylistDialog> {
       child: Container(
         width: 400,
         padding: const EdgeInsets.all(16),
-        child: SingleChildScrollView(
+        child: _isLoading
+            ? const Center(
+                child: CircularProgressIndicator(),
+              )
+            : SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
