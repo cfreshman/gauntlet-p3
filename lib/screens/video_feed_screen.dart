@@ -16,11 +16,13 @@ import '../screens/profile_screen.dart';
 class VideoFeedScreen extends StatefulWidget {
   final List<Video>? videos;  // Optional list of videos to show instead of feed
   final int initialIndex;     // Starting position in the video list
+  final bool showBackSidebar; // Whether to show the back sidebar
 
   const VideoFeedScreen({
     super.key,
     this.videos,
     this.initialIndex = 0,
+    this.showBackSidebar = true,
   });
 
   @override
@@ -321,7 +323,7 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
       backgroundColor: AppColors.background,
       body: SafeArea(
         child: SidebarLayout(
-          showBackButton: widget.videos != null,
+          showBackButton: widget.showBackSidebar && widget.videos != null,
           child: StreamBuilder<List<Video>>(
             stream: widget.videos != null 
                 ? Stream.value(widget.videos!) 

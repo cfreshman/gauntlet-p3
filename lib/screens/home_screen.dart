@@ -3,6 +3,7 @@ import 'package:reel_ai/screens/video_feed_screen.dart';
 import 'package:reel_ai/screens/search_screen.dart';
 import 'package:reel_ai/screens/profile_screen.dart';
 import 'package:reel_ai/screens/upload_video_screen.dart';
+import 'package:reel_ai/screens/subscription_feed_screen.dart';
 import '../theme/colors.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
@@ -19,6 +20,7 @@ class _HomeScreenState extends State<HomeScreen> {
   static const List<Widget> _screens = <Widget>[
     UploadVideoScreen(),
     VideoFeedScreen(),
+    SubscriptionFeedScreen(),
     SearchScreen(),
     ProfileScreen(),
   ];
@@ -77,7 +79,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   NavigationRailDestination(
                     icon: Icon(Icons.upload_outlined),
                     selectedIcon: Icon(Icons.upload),
-                    label: Text('upload'),
+                    label: SizedBox.shrink(),
                   ),
                   NavigationRailDestination(
                     icon: Icon(Icons.play_circle_outline),
@@ -85,14 +87,19 @@ class _HomeScreenState extends State<HomeScreen> {
                     label: Text('watch'),
                   ),
                   NavigationRailDestination(
+                    icon: Icon(Icons.subscriptions_outlined),
+                    selectedIcon: Icon(Icons.subscriptions),
+                    label: Text('subs'),
+                  ),
+                  NavigationRailDestination(
                     icon: Icon(Icons.search_outlined),
                     selectedIcon: Icon(Icons.search),
-                    label: Text('search'),
+                    label: SizedBox.shrink(),
                   ),
                   NavigationRailDestination(
                     icon: Icon(Icons.person_outline),
                     selectedIcon: Icon(Icons.person),
-                    label: Text('profile'),
+                    label: SizedBox.shrink(),
                   ),
                 ],
               ),

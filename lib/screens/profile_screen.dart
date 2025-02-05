@@ -142,6 +142,68 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       ),
                     ),
                     const SizedBox(height: 8),
+                    // Follow button - only show for other users
+                    if (!_isCurrentUser)
+                      StreamBuilder<DocumentSnapshot>(
+                        stream: _firestore
+                            .collection('users')
+                            .doc(_auth.currentUser?.uid)
+                            .snapshots(),
+                        builder: (context, snapshot) {
+                          if (!snapshot.hasData) return const SizedBox();
+                          
+                          final currentUserDoc = snapshot.data!;
+                          final data = currentUserDoc.data() as Map<String, dynamic>;
+                          final following = List<String>.from(data['following'] ?? []);
+                          final isFollowing = following.contains(widget.userId);
+
+                          return FilledButton.tonal(
+                            onPressed: () async {
+                              try {
+                                if (isFollowing) {
+                                  // Unfollow
+                                  await _firestore.collection('users').doc(_auth.currentUser!.uid).update({
+                                    'following': FieldValue.arrayRemove([widget.userId]),
+                                    'followingCount': FieldValue.increment(-1),
+                                  });
+                                  await _firestore.collection('users').doc(widget.userId).update({
+                                    'followers': FieldValue.arrayRemove([_auth.currentUser!.uid]),
+                                    'followerCount': FieldValue.increment(-1),
+                                  });
+                                } else {
+                                  // Follow
+                                  await _firestore.collection('users').doc(_auth.currentUser!.uid).update({
+                                    'following': FieldValue.arrayUnion([widget.userId]),
+                                    'followingCount': FieldValue.increment(1),
+                                  });
+                                  await _firestore.collection('users').doc(widget.userId).update({
+                                    'followers': FieldValue.arrayUnion([_auth.currentUser!.uid]),
+                                    'followerCount': FieldValue.increment(1),
+                                  });
+                                }
+                              } catch (e) {
+                                print('Error toggling follow: $e');
+                              }
+                            },
+                            style: FilledButton.styleFrom(
+                              backgroundColor: isFollowing ? AppColors.background : AppColors.accent,
+                              foregroundColor: isFollowing ? AppColors.accent : AppColors.background,
+                              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                                side: BorderSide(
+                                  color: AppColors.accent,
+                                  width: isFollowing ? 1 : 0,
+                                ),
+                              ),
+                            ),
+                            child: Text(
+                              (isFollowing ? 'following' : 'follow').lowercase,
+                            ),
+                          );
+                        },
+                      ),
+                    const SizedBox(height: 8),
                     // Bio
                     Text(
                       _bio.lowercase,
