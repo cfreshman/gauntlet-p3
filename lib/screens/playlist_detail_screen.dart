@@ -4,6 +4,9 @@ import '../models/video.dart';
 import '../services/playlist_service.dart';
 import '../theme/colors.dart';
 import '../widgets/video_preview.dart';
+import '../widgets/sidebar_layout.dart';
+import '../widgets/loading_indicator.dart';
+import '../extensions/string_extensions.dart';
 import 'video_feed_screen.dart';
 
 class PlaylistDetailScreen extends StatefulWidget {
@@ -29,78 +32,49 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
     super.dispose();
   }
 
-  Future<void> _updatePlaylistName() async {
-    if (_nameController.text.trim().isEmpty) return;
+  Future<void> _updatePlaylistName(String playlistId, String newName) async {
+    if (newName.trim().isEmpty) return;
 
     try {
-      await _playlistService.updatePlaylistName(
-        widget.playlistId,
-        _nameController.text.trim(),
-      );
+      await _playlistService.updatePlaylistName(playlistId, newName.trim());
       setState(() => _isEditing = false);
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to update playlist name: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('failed to update playlist name'),
+          backgroundColor: Colors.red,
+        ));
       }
     }
   }
 
-  Future<void> _removeVideo(String videoId) async {
-    try {
-      await _playlistService.removeVideoFromPlaylist(widget.playlistId, videoId);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('Video removed from playlist'),
-            backgroundColor: AppColors.accent,
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to remove video: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    }
-  }
-
-  Future<void> _deletePlaylist() async {
+  Future<void> _deletePlaylist(String playlistId) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: AppColors.background,
         title: Text(
-          'Delete Playlist',
+          'delete playlist',
           style: TextStyle(color: AppColors.textPrimary),
         ),
         content: Text(
-          'Are you sure you want to delete this playlist?',
+          'are you sure you want to delete this playlist?',
           style: TextStyle(color: AppColors.textSecondary),
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
+            onPressed: () => Navigator.pop(context, false),
             child: Text(
-              'Cancel',
+              'cancel',
               style: TextStyle(color: AppColors.accent),
             ),
           ),
-          ElevatedButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
-              foregroundColor: Colors.white,
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: Text(
+              'delete',
+              style: TextStyle(color: Colors.red),
             ),
-            child: const Text('Delete'),
           ),
         ],
       ),
@@ -109,216 +83,314 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
     if (confirmed != true) return;
 
     try {
-      await _playlistService.deletePlaylist(widget.playlistId);
+      await _playlistService.deletePlaylist(playlistId);
       if (mounted) {
-        Navigator.of(context).pop();
+        Navigator.pop(context);
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to delete playlist: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('failed to delete playlist'),
+          backgroundColor: Colors.red,
+        ));
+      }
+    }
+  }
+
+  Future<void> _removeVideo(String playlistId, String videoId) async {
+    try {
+      await _playlistService.removeVideoFromPlaylist(playlistId, videoId);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('video removed'),
+          backgroundColor: AppColors.accent,
+        ));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('failed to remove video'),
+          backgroundColor: Colors.red,
+        ));
       }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder<List<Playlist>>(
-      stream: _playlistService.getUserPlaylists(),
-      builder: (context, playlistSnapshot) {
-        if (playlistSnapshot.hasError) {
-          return Scaffold(
-            appBar: AppBar(title: const Text('Error')),
-            body: Center(
-              child: Text(
-                'Error: ${playlistSnapshot.error}',
-                style: TextStyle(color: Colors.red),
-              ),
-            ),
-          );
-        }
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      body: SidebarLayout(
+        showBackButton: true,
+        child: StreamBuilder<List<Playlist>>(
+          stream: _playlistService.getUserPlaylists(),
+          builder: (context, snapshot) {
+            if (snapshot.hasError) {
+              return Center(
+                child: Text(
+                  'error loading playlist',
+                  style: TextStyle(color: Colors.red),
+                ),
+              );
+            }
 
-        if (!playlistSnapshot.hasData) {
-          return Scaffold(
-            appBar: AppBar(title: const Text('Loading...')),
-            body: const Center(child: CircularProgressIndicator()),
-          );
-        }
+            if (!snapshot.hasData) {
+              return const Center(child: LoadingIndicator());
+            }
 
-        final playlist = playlistSnapshot.data!
-            .firstWhere((p) => p.id == widget.playlistId);
-
-        return Scaffold(
-          backgroundColor: AppColors.background,
-          appBar: AppBar(
-            backgroundColor: AppColors.background,
-            title: _isEditing
-                ? Row(
-                    children: [
-                      Expanded(
-                        child: TextField(
-                          controller: _nameController,
-                          autofocus: true,
-                          style: TextStyle(color: AppColors.textPrimary),
-                          decoration: InputDecoration(
-                            hintText: 'Playlist name',
-                            hintStyle: TextStyle(color: AppColors.textSecondary),
-                            border: InputBorder.none,
-                          ),
-                        ),
-                      ),
-                      IconButton(
-                        icon: Icon(
-                          Icons.check,
-                          color: AppColors.accent,
-                        ),
-                        onPressed: _updatePlaylistName,
-                      ),
-                      IconButton(
-                        icon: Icon(
-                          Icons.close,
-                          color: AppColors.textSecondary,
-                        ),
-                        onPressed: () => setState(() => _isEditing = false),
-                      ),
-                    ],
-                  )
-                : Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          playlist.name,
-                          style: TextStyle(color: AppColors.textPrimary),
-                        ),
-                      ),
-                      IconButton(
-                        icon: Icon(
-                          Icons.edit,
-                          color: AppColors.accent,
-                        ),
-                        onPressed: () {
-                          _nameController.text = playlist.name;
-                          setState(() => _isEditing = true);
-                        },
-                      ),
-                      IconButton(
-                        icon: const Icon(
-                          Icons.delete_outline,
-                          color: Colors.red,
-                        ),
-                        onPressed: _deletePlaylist,
-                      ),
-                    ],
-                  ),
-          ),
-          body: FutureBuilder<List<Video>>(
-            future: _playlistService.getPlaylistVideos(widget.playlistId),
-            builder: (context, videoSnapshot) {
-              if (videoSnapshot.hasError) {
-                return Center(
-                  child: Text(
-                    'Error: ${videoSnapshot.error}',
-                    style: TextStyle(color: Colors.red),
-                  ),
+            final playlist = snapshot.data!.firstWhere(
+              (p) => p.id == widget.playlistId,
+              orElse: () {
+                // If playlist not found, go back
+                Future.microtask(() => Navigator.pop(context));
+                return Playlist(
+                  id: '',
+                  name: '',
+                  userId: '',
+                  videoIds: [],
+                  updatedAt: DateTime.now(),
+                  createdAt: DateTime.now(),
+                  firstVideoThumbnail: null,
                 );
-              }
+              },
+            );
 
-              if (!videoSnapshot.hasData) {
-                return const Center(child: CircularProgressIndicator());
-              }
+            if (playlist.id.isEmpty) {
+              return const SizedBox.shrink();
+            }
 
-              final videos = videoSnapshot.data!;
-              if (videos.isEmpty) {
-                return Center(
-                  child: Text(
-                    'No videos in this playlist',
-                    style: TextStyle(color: AppColors.textSecondary),
-                  ),
-                );
-              }
-
-              return ReorderableListView.builder(
-                padding: const EdgeInsets.all(16),
-                itemCount: videos.length,
-                onReorder: (oldIndex, newIndex) async {
-                  // Adjust the index if moving down
-                  if (oldIndex < newIndex) {
-                    newIndex -= 1;
-                  }
-
-                  try {
-                    // Create new video order
-                    final List<String> newOrder = List.from(playlist.videoIds);
-                    final String movedId = newOrder.removeAt(oldIndex);
-                    newOrder.insert(newIndex, movedId);
-
-                    // Update the playlist
-                    await _playlistService.reorderVideos(widget.playlistId, newOrder);
-
-                    if (mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: const Text('Playlist order updated'),
-                          backgroundColor: AppColors.accent,
-                        ),
-                      );
-                    }
-                  } catch (e) {
-                    if (mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text('Failed to reorder videos: $e'),
-                          backgroundColor: Colors.red,
-                        ),
-                      );
-                    }
-                  }
-                },
-                itemBuilder: (context, index) {
-                  final video = videos[index];
-                  return Dismissible(
-                    key: Key(video.id),
-                    direction: DismissDirection.endToStart,
-                    background: Container(
-                      alignment: Alignment.centerRight,
-                      padding: const EdgeInsets.only(right: 16),
-                      color: Colors.red,
-                      child: const Icon(
-                        Icons.delete_outline,
-                        color: Colors.white,
+            return Row(
+              children: [
+                // Left side - Playlist info
+                Container(
+                  width: 300,
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    border: Border(
+                      right: BorderSide(
+                        color: AppColors.background.withOpacity(0.2),
+                        width: 1,
                       ),
                     ),
-                    onDismissed: (_) => _removeVideo(video.id),
-                    child: Padding(
-                      padding: const EdgeInsets.only(bottom: 16),
-                      child: VideoPreview(
-                        key: ValueKey(video.id),
-                        video: video,
-                        showCreator: false,
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => VideoFeedScreen(
-                                videos: videos,
-                                initialIndex: index,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Playlist thumbnail
+                      AspectRatio(
+                        aspectRatio: 16 / 9,
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: AppColors.background.withOpacity(0.2),
+                            borderRadius: BorderRadius.circular(8),
+                            image: playlist.firstVideoThumbnail != null
+                                ? DecorationImage(
+                                    image: NetworkImage(playlist.firstVideoThumbnail!),
+                                    fit: BoxFit.cover,
+                                  )
+                                : null,
+                          ),
+                          child: playlist.firstVideoThumbnail == null
+                              ? Icon(
+                                  Icons.playlist_play,
+                                  size: 48,
+                                  color: AppColors.accent,
+                                )
+                              : null,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      
+                      // Playlist name
+                      if (_isEditing) ...[
+                        Row(
+                          children: [
+                            Expanded(
+                              child: TextField(
+                                controller: _nameController,
+                                autofocus: true,
+                                style: TextStyle(color: AppColors.textPrimary),
+                                decoration: InputDecoration(
+                                  hintText: 'playlist name',
+                                  hintStyle: TextStyle(color: AppColors.textSecondary),
+                                  border: InputBorder.none,
+                                ),
+                              ),
+                            ),
+                            IconButton(
+                              icon: Icon(Icons.check, color: AppColors.accent),
+                              onPressed: () => _updatePlaylistName(playlist.id, _nameController.text),
+                            ),
+                            IconButton(
+                              icon: Icon(Icons.close, color: AppColors.textSecondary),
+                              onPressed: () => setState(() => _isEditing = false),
+                            ),
+                          ],
+                        ),
+                      ] else ...[
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                playlist.name.lowercase,
+                                style: TextStyle(
+                                  color: AppColors.textPrimary,
+                                  fontSize: 24,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                            IconButton(
+                              icon: Icon(Icons.edit, color: AppColors.accent),
+                              onPressed: () {
+                                _nameController.text = playlist.name;
+                                setState(() => _isEditing = true);
+                              },
+                            ),
+                          ],
+                        ),
+                      ],
+                      const SizedBox(height: 8),
+                      
+                      // Video count
+                      Text(
+                        '${playlist.videoIds.length} videos'.lowercase,
+                        style: TextStyle(
+                          color: AppColors.textSecondary,
+                          fontSize: 16,
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                      
+                      // Delete button
+                      OutlinedButton.icon(
+                        onPressed: () => _deletePlaylist(playlist.id),
+                        icon: Icon(Icons.delete_outline, color: Colors.red),
+                        label: Text(
+                          'delete playlist'.lowercase,
+                          style: const TextStyle(color: Colors.red),
+                        ),
+                        style: OutlinedButton.styleFrom(
+                          side: const BorderSide(color: Colors.red),
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                // Right side - Video list
+                Expanded(
+                  child: FutureBuilder<List<Video>>(
+                    future: _playlistService.getPlaylistVideos(playlist.id),
+                    builder: (context, snapshot) {
+                      if (snapshot.hasError) {
+                        return Center(
+                          child: Text(
+                            'error loading videos',
+                            style: TextStyle(color: Colors.red),
+                          ),
+                        );
+                      }
+
+                      if (!snapshot.hasData) {
+                        return const Center(child: LoadingIndicator());
+                      }
+
+                      final videos = snapshot.data!;
+                      if (videos.isEmpty) {
+                        return Center(
+                          child: Text(
+                            'no videos in playlist',
+                            style: TextStyle(color: AppColors.textSecondary),
+                          ),
+                        );
+                      }
+
+                      return ReorderableListView.builder(
+                        padding: const EdgeInsets.all(16),
+                        itemCount: videos.length,
+                        onReorder: (oldIndex, newIndex) async {
+                          if (oldIndex < newIndex) {
+                            newIndex -= 1;
+                          }
+
+                          try {
+                            final newOrder = List<String>.from(playlist.videoIds);
+                            final item = newOrder.removeAt(oldIndex);
+                            newOrder.insert(newIndex, item);
+
+                            await _playlistService.reorderVideos(playlist.id, newOrder);
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                                content: Text('playlist updated'),
+                                backgroundColor: AppColors.accent,
+                              ));
+                            }
+                          } catch (e) {
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                                content: Text('failed to update playlist'),
+                                backgroundColor: Colors.red,
+                              ));
+                            }
+                          }
+                        },
+                        itemBuilder: (context, index) {
+                          final video = videos[index];
+                          return Dismissible(
+                            key: ValueKey(video.id),
+                            direction: DismissDirection.endToStart,
+                            background: Container(
+                              alignment: Alignment.centerRight,
+                              padding: const EdgeInsets.only(right: 16),
+                              decoration: BoxDecoration(
+                                color: Colors.red,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              margin: const EdgeInsets.only(right: 40), // Make room for reorder handle
+                              child: Icon(
+                                Icons.delete_outline,
+                                color: Colors.white,
+                              ),
+                            ),
+                            onDismissed: (_) => _removeVideo(playlist.id, video.id),
+                            child: Padding(
+                              padding: const EdgeInsets.only(bottom: 16),
+                              child: SizedBox(
+                                height: 180,
+                                child: VideoPreview(
+                                  key: ValueKey(video.id),
+                                  video: video,
+                                  showTitle: true,
+                                  showCreator: false,
+                                  videos: videos,
+                                  currentIndex: index,
+                                  onTap: () {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) => VideoFeedScreen(
+                                          videos: videos,
+                                          initialIndex: index,
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                ),
                               ),
                             ),
                           );
                         },
-                      ),
-                    ),
-                  );
-                },
-              );
-            },
-          ),
-        );
-      },
+                      );
+                    },
+                  ),
+                ),
+              ],
+            );
+          },
+        ),
+      ),
     );
   }
 } 

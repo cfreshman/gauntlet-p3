@@ -52,7 +52,7 @@ class VideoPreview extends StatelessWidget {
             color: AppColors.background.withOpacity(0.1),
             borderRadius: BorderRadius.circular(8),
           ),
-          child: Stack(
+          child: height != null ? Stack(
             fit: StackFit.expand,
             children: [
               // Video thumbnail
@@ -93,71 +93,182 @@ class VideoPreview extends StatelessWidget {
               ),
 
               // Info overlay at bottom
-              Positioned(
-                left: 0,
-                right: 0,
-                bottom: 0,
-                child: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [
-                        Colors.transparent,
-                        Colors.black.withOpacity(0.7),
+              if (showTitle || showCreator)
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  child: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          Colors.transparent,
+                          Colors.black.withOpacity(0.7),
+                        ],
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (showTitle) ...[
+                          Text(
+                            video.title.lowercase,
+                            style: TextStyle(
+                              color: AppColors.textPrimary,
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                            ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const SizedBox(height: 4),
+                        ],
+                        if (showCreator) ...[
+                          Text(
+                            video.creatorUsername.lowercase,
+                            style: TextStyle(
+                              color: AppColors.textSecondary,
+                              fontSize: 12,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                        ],
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.visibility_outlined,
+                              size: 12,
+                              color: AppColors.accent,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              '${video.viewCount} views'.lowercase,
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: AppColors.accent,
+                              ),
+                            ),
+                          ],
+                        ),
                       ],
                     ),
                   ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      if (showTitle) ...[
-                        Text(
-                          video.title.lowercase,
-                          style: TextStyle(
-                            color: AppColors.textPrimary,
-                            fontSize: 14,
-                            fontWeight: FontWeight.bold,
-                          ),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        const SizedBox(height: 4),
-                      ],
-                      if (showCreator) ...[
-                        Text(
-                          video.creatorUsername.lowercase,
-                          style: TextStyle(
-                            color: AppColors.textSecondary,
-                            fontSize: 12,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                      ],
-                      Row(
-                        children: [
-                          Icon(
-                            Icons.visibility_outlined,
-                            size: 12,
+                ),
+            ],
+          ) : AspectRatio(
+            aspectRatio: 16 / 9,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                // Video thumbnail
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: Image.network(
+                    video.thumbnailUrl,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) {
+                      return Container(
+                        color: AppColors.cardBackground,
+                        child: Center(
+                          child: Icon(
+                            Icons.video_library,
                             color: AppColors.accent,
+                            size: 32,
                           ),
-                          const SizedBox(width: 4),
-                          Text(
-                            '${video.viewCount} views'.lowercase,
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: AppColors.accent,
+                        ),
+                      );
+                    },
+                  ),
+                ),
+
+                // Play button overlay
+                Center(
+                  child: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: AppColors.background.withOpacity(0.7),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      Icons.play_arrow,
+                      size: 32,
+                      color: AppColors.accent,
+                    ),
+                  ),
+                ),
+
+                // Info overlay at bottom
+                if (showTitle || showCreator)
+                  Positioned(
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    child: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [
+                            Colors.transparent,
+                            Colors.black.withOpacity(0.7),
+                          ],
+                        ),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (showTitle) ...[
+                            Text(
+                              video.title.lowercase,
+                              style: TextStyle(
+                                color: AppColors.textPrimary,
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                              ),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
                             ),
+                            const SizedBox(height: 4),
+                          ],
+                          if (showCreator) ...[
+                            Text(
+                              video.creatorUsername.lowercase,
+                              style: TextStyle(
+                                color: AppColors.textSecondary,
+                                fontSize: 12,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                          ],
+                          Row(
+                            children: [
+                              Icon(
+                                Icons.visibility_outlined,
+                                size: 12,
+                                color: AppColors.accent,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                '${video.viewCount} views'.lowercase,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: AppColors.accent,
+                                ),
+                              ),
+                            ],
                           ),
                         ],
                       ),
-                    ],
+                    ),
                   ),
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

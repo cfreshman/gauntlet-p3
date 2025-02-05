@@ -158,12 +158,15 @@ class _SearchScreenState extends State<SearchScreen> {
                         itemCount: _videos.length,
                         itemBuilder: (context, index) {
                           final video = _videos[index];
-                          return VideoPreview(
-                            video: video,
-                            showTitle: false,
-                            showCreator: false,
-                            videos: _videos,
-                            currentIndex: index,
+                          return SizedBox(
+                            height: 180,
+                            child: VideoPreview(
+                              video: video,
+                              showTitle: true,
+                              showCreator: false,
+                              videos: _videos,
+                              currentIndex: index,
+                            ),
                           );
                         },
                       ),
