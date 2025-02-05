@@ -3,6 +3,9 @@ import '../models/comment.dart';
 import '../services/video_service.dart';
 import '../theme/colors.dart';
 import '../extensions/string_extensions.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:timeago/timeago.dart' as timeago;
+import '../screens/profile_screen.dart';
 
 class CommentList extends StatefulWidget {
   final String videoId;
@@ -196,14 +199,18 @@ class _CommentTile extends StatefulWidget {
 
 class _CommentTileState extends State<_CommentTile> {
   final _videoService = VideoService();
+  final _firestore = FirebaseFirestore.instance;
   bool _hasLiked = false;
   int _likeCount = 0;
   bool _isLoading = false;
+  String _username = '';
+  String? _userPhotoUrl;
 
   @override
   void initState() {
     super.initState();
     _likeCount = widget.comment.likeCount;
+    _loadUserInfo();
     // Check initial like state
     _videoService.hasLikedComment(widget.videoId, widget.comment.id)
         .first
@@ -212,6 +219,20 @@ class _CommentTileState extends State<_CommentTile> {
             setState(() => _hasLiked = liked);
           }
         });
+  }
+
+  Future<void> _loadUserInfo() async {
+    try {
+      final userDoc = await _firestore.collection('users').doc(widget.comment.userId).get();
+      if (mounted && userDoc.exists) {
+        setState(() {
+          _username = userDoc.data()?['displayName'] ?? '';
+          _userPhotoUrl = userDoc.data()?['photoUrl'];
+        });
+      }
+    } catch (e) {
+      print('Error loading user info: $e');
+    }
   }
 
   Future<void> _toggleLike() async {
@@ -252,123 +273,89 @@ class _CommentTileState extends State<_CommentTile> {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 16,
-        vertical: 8,
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // User avatar
-          CircleAvatar(
-            radius: 16,
-            backgroundColor: AppColors.accent,
-            backgroundImage: widget.comment.userPhotoUrl != null
-                ? NetworkImage(widget.comment.userPhotoUrl!)
-                : null,
-            child: widget.comment.userPhotoUrl == null
-                ? Icon(
-                    Icons.person,
-                    color: AppColors.background,
-                    size: 20,
-                  )
-                : null,
+    return ListTile(
+      leading: GestureDetector(
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => ProfileScreen(userId: widget.comment.userId),
           ),
-          const SizedBox(width: 12),
-
-          // Comment content
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Username and timestamp
-                Row(
-                  children: [
-                    Text(
-                      '@${widget.comment.username}'.toLowerCase(),
-                      style: TextStyle(
-                        color: AppColors.textPrimary,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 12,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      _getTimeAgo(widget.comment.createdAt),
-                      style: TextStyle(
-                        color: AppColors.textSecondary,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 4),
-
-                // Comment text
-                Text(
-                  widget.comment.text.toLowerCase(),
-                  style: TextStyle(
-                    color: AppColors.textPrimary,
-                    fontSize: 14,
-                  ),
-                ),
-                const SizedBox(height: 4),
-
-                // Like button
-                GestureDetector(
-                  onTap: _toggleLike,
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      _isLoading
-                          ? SizedBox(
-                              width: 16,
-                              height: 16,
-                              child: CircularProgressIndicator(
-                                color: AppColors.accent,
-                                strokeWidth: 2,
-                              ),
-                            )
-                          : Icon(
-                              _hasLiked ? Icons.favorite : Icons.favorite_border,
-                              size: 16,
-                              color: _hasLiked ? AppColors.accent : AppColors.textSecondary,
-                            ),
-                      const SizedBox(width: 4),
-                      Text(
-                        _likeCount.toString(),
-                        style: TextStyle(
-                          color: _hasLiked ? AppColors.accent : AppColors.textSecondary,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
+        ),
+        child: CircleAvatar(
+          backgroundColor: AppColors.accent,
+          backgroundImage: _userPhotoUrl != null ? NetworkImage(_userPhotoUrl!) : null,
+          child: _userPhotoUrl == null
+              ? Icon(Icons.person, color: AppColors.background)
+              : null,
+        ),
+      ),
+      title: Row(
+        children: [
+          GestureDetector(
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => ProfileScreen(userId: widget.comment.userId),
+              ),
+            ),
+            child: Text(
+              _username.toLowerCase(),
+              style: TextStyle(
+                color: AppColors.textPrimary,
+                fontWeight: FontWeight.bold,
+                fontSize: 14,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            timeago.format(widget.comment.createdAt).toLowerCase(),
+            style: TextStyle(
+              color: AppColors.textSecondary,
+              fontSize: 12,
             ),
           ),
         ],
       ),
+      subtitle: Text(
+        widget.comment.text.toLowerCase(),
+        style: TextStyle(
+          color: AppColors.textPrimary,
+          fontSize: 14,
+        ),
+      ),
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _isLoading
+              ? SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: AppColors.accent,
+                  ),
+                )
+              : GestureDetector(
+                  onTap: _toggleLike,
+                  child: Icon(
+                    _hasLiked ? Icons.favorite : Icons.favorite_border,
+                    size: 16,
+                    color: _hasLiked ? AppColors.accent : AppColors.textSecondary,
+                  ),
+                ),
+          if (_likeCount > 0) ...[
+            const SizedBox(width: 4),
+            Text(
+              _likeCount.toString(),
+              style: TextStyle(
+                color: _hasLiked ? AppColors.accent : AppColors.textSecondary,
+                fontSize: 12,
+              ),
+            ),
+          ],
+        ],
+      ),
     );
-  }
-
-  String _getTimeAgo(DateTime dateTime) {
-    final difference = DateTime.now().difference(dateTime);
-    
-    if (difference.inDays > 365) {
-      return '${(difference.inDays / 365).floor()}y';
-    } else if (difference.inDays > 30) {
-      return '${(difference.inDays / 30).floor()}mo';
-    } else if (difference.inDays > 0) {
-      return '${difference.inDays}d';
-    } else if (difference.inHours > 0) {
-      return '${difference.inHours}h';
-    } else if (difference.inMinutes > 0) {
-      return '${difference.inMinutes}m';
-    } else {
-      return 'now';
-    }
   }
 } 

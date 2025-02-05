@@ -4,8 +4,6 @@ class Comment {
   final String id;
   final String videoId;
   final String userId;
-  final String username;
-  final String? userPhotoUrl;
   final String text;
   final DateTime createdAt;
   final int likeCount;
@@ -15,8 +13,6 @@ class Comment {
     required this.id,
     required this.videoId,
     required this.userId,
-    required this.username,
-    this.userPhotoUrl,
     required this.text,
     required this.createdAt,
     this.likeCount = 0,
@@ -30,8 +26,6 @@ class Comment {
       id: doc.id,
       videoId: data['videoId'] ?? '',
       userId: data['userId'] ?? '',
-      username: data['username'] ?? '',
-      userPhotoUrl: data['userPhotoUrl'],
       text: data['text'] ?? '',
       createdAt: (data['createdAt'] as Timestamp).toDate(),
       likeCount: data['likeCount'] ?? 0,
@@ -44,8 +38,6 @@ class Comment {
     return {
       'videoId': videoId,
       'userId': userId,
-      'username': username,
-      'userPhotoUrl': userPhotoUrl,
       'text': text,
       'createdAt': Timestamp.fromDate(createdAt),
       'likeCount': likeCount,
@@ -58,8 +50,6 @@ class Comment {
     String? id,
     String? videoId,
     String? userId,
-    String? username,
-    String? userPhotoUrl,
     String? text,
     DateTime? createdAt,
     int? likeCount,
@@ -69,8 +59,6 @@ class Comment {
       id: id ?? this.id,
       videoId: videoId ?? this.videoId,
       userId: userId ?? this.userId,
-      username: username ?? this.username,
-      userPhotoUrl: userPhotoUrl ?? this.userPhotoUrl,
       text: text ?? this.text,
       createdAt: createdAt ?? this.createdAt,
       likeCount: likeCount ?? this.likeCount,

@@ -47,9 +47,12 @@ class AuthService {
         password: password,
       );
 
+      // Update the user's display name in Firebase Auth
+      await credential.user!.updateDisplayName(username);
+
       // Create user document in Firestore
       await _firestore.collection('users').doc(credential.user!.uid).set({
-        'username': username,
+        'username': username.toLowerCase(),
         'displayName': username,
         'email': email,
         'createdAt': FieldValue.serverTimestamp(),

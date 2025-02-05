@@ -219,15 +219,15 @@ class VideoService {
   }
 
   // Get current user's videos
-  Future<List<Video>> getUserVideos() async {
+  Future<List<Video>> getUserVideos({String? userId}) async {
     final user = _auth.currentUser;
-    if (user == null) {
+    if (user == null && userId == null) {
       throw Exception('User must be logged in to fetch their videos');
     }
 
     final snapshot = await _firestore
         .collection('videos')
-        .where('creatorId', isEqualTo: user.uid)
+        .where('creatorId', isEqualTo: userId ?? user!.uid)
         .orderBy('createdAt', descending: true)
         .get();
 
@@ -323,8 +323,6 @@ class VideoService {
           .add({
         'videoId': videoId,
         'userId': user.uid,
-        'username': user.displayName ?? 'Anonymous',
-        'userPhotoUrl': user.photoURL,
         'text': text,
         'createdAt': FieldValue.serverTimestamp(),
         'likeCount': 0,

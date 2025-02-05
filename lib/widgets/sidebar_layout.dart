@@ -20,19 +20,28 @@ class SidebarLayout extends StatelessWidget {
     return Row(
       children: [
         // Back button sidebar
-        GestureDetector(
-          onTap: onBack ?? () => Navigator.pop(context),
-          child: Container(
-            width: 60,
-            color: AppColors.background,
-            child: Center(
-              child: Icon(
-                Icons.arrow_back_ios_new,
-                color: AppColors.textPrimary,
-                size: 24,
+        Container(
+          width: 60,
+          color: AppColors.background,
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: onBack ?? () => Navigator.pop(context),
+              child: Center(
+                child: Icon(
+                  Icons.arrow_back_ios_new,
+                  color: AppColors.textPrimary,
+                  size: 24,
+                ),
               ),
             ),
           ),
+        ),
+        // Vertical divider
+        VerticalDivider(
+          thickness: 1,
+          width: 1,
+          color: AppColors.accent.withOpacity(0.2),
         ),
         // Main content
         Expanded(child: child),

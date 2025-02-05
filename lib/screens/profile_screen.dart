@@ -8,11 +8,17 @@ import '../extensions/string_extensions.dart';
 import '../widgets/video_preview.dart';
 import '../services/playlist_service.dart';
 import '../screens/playlist_detail_screen.dart';
+import '../widgets/sidebar_layout.dart';
 import 'edit_profile_screen.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 class ProfileScreen extends StatefulWidget {
-  const ProfileScreen({super.key});
+  final String? userId;  // If null, show current user's profile
+
+  const ProfileScreen({
+    super.key,
+    this.userId,
+  });
 
   @override
   State<ProfileScreen> createState() => _ProfileScreenState();
@@ -21,34 +27,59 @@ class ProfileScreen extends StatefulWidget {
 class _ProfileScreenState extends State<ProfileScreen> {
   final _videoService = VideoService();
   final _auth = FirebaseAuth.instance;
+  final _firestore = FirebaseFirestore.instance;
   final _playlistService = PlaylistService();
   bool _showVideos = false;
   bool _isLoading = true;
   List<Video> _userVideos = [];
   String _bio = 'new user';
-  
-  String get _username => _auth.currentUser?.displayName ?? 'Anonymous';
-  String? get _photoUrl => _auth.currentUser?.photoURL;
+  String _username = 'Anonymous';
+  String? _photoUrl;
+  bool _isCurrentUser = false;
   
   @override
   void initState() {
     super.initState();
+    _isCurrentUser = widget.userId == null || widget.userId == _auth.currentUser?.uid;
+    _loadUserData();
     _loadUserVideos();
-    _loadUserBio();
+  }
+
+  Future<void> _loadUserData() async {
+    final userId = widget.userId ?? _auth.currentUser?.uid;
+    if (userId == null) {
+      setState(() => _isLoading = false);
+      return;
+    }
+
+    try {
+      final userDoc = await _firestore.collection('users').doc(userId).get();
+      if (userDoc.exists && mounted) {
+        final data = userDoc.data()!;
+        setState(() {
+          _username = data['displayName'] ?? 'Anonymous';
+          _bio = data['bio'] ?? 'new user';
+          _photoUrl = data['photoUrl'];
+        });
+      }
+    } catch (e) {
+      print('Error loading user data: $e');
+    }
   }
   
   Future<void> _loadUserVideos() async {
-    if (_auth.currentUser == null) {
+    final userId = widget.userId ?? _auth.currentUser?.uid;
+    if (userId == null) {
       setState(() => _isLoading = false);
       return;
     }
     
     setState(() => _isLoading = true);
     try {
-      final videos = await _videoService.getUserVideos();
+      final videos = await _videoService.getUserVideos(userId: userId);
       setState(() {
         _userVideos = videos;
-        _showVideos = videos.isNotEmpty; // Default to videos if user has any
+        _showVideos = videos.isNotEmpty;
         _isLoading = false;
       });
     } catch (e) {
@@ -57,33 +88,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
-  Future<void> _loadUserBio() async {
-    if (_auth.currentUser == null) return;
-    
-    try {
-      final userDoc = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(_auth.currentUser!.uid)
-          .get();
-          
-      if (userDoc.exists && mounted) {
-        setState(() {
-          _bio = userDoc.data()?['bio'] ?? 'new user';
-        });
-      }
-    } catch (e) {
-      print('Error loading bio: $e');
-    }
-  }
-
   void _refreshProfile() {
+    _loadUserData();
     _loadUserVideos();
-    _loadUserBio();
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    final content = Scaffold(
       backgroundColor: AppColors.background,
       body: SafeArea(
         child: Row(
@@ -143,19 +155,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ],
                   ),
                   const SizedBox(height: 16),
-                  // Edit Profile Button
-                  FilledButton.tonal(
-                    onPressed: () async {
-                      await Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const EditProfileScreen(),
-                        ),
-                      );
-                      _refreshProfile();
-                    },
-                    child: Text('edit profile'.lowercase),
-                  ),
+                  // Edit Profile Button - only show for current user
+                  if (_isCurrentUser)
+                    FilledButton.tonal(
+                      onPressed: () async {
+                        await Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const EditProfileScreen(),
+                          ),
+                        );
+                        _refreshProfile();
+                      },
+                      child: Text('edit profile'.lowercase),
+                    ),
                 ],
               ),
             ),
@@ -212,6 +225,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ),
       ),
     );
+
+    return !_isCurrentUser
+        ? SidebarLayout(
+            showBackButton: true,
+            child: content,
+          )
+        : content;
   }
 
   Widget _buildToggleButton({
@@ -273,8 +293,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Widget _buildPlaylistsList() {
+    final userId = widget.userId ?? _auth.currentUser?.uid;
+    if (userId == null) return const SizedBox();
+    
     return StreamBuilder<List<Playlist>>(
-      stream: _playlistService.getUserPlaylists(),
+      stream: _playlistService.getUserPlaylists(userId: userId),
       builder: (context, snapshot) {
         if (snapshot.hasError) {
           return Center(

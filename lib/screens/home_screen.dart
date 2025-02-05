@@ -4,6 +4,7 @@ import 'package:reel_ai/screens/search_screen.dart';
 import 'package:reel_ai/screens/profile_screen.dart';
 import 'package:reel_ai/screens/upload_video_screen.dart';
 import '../theme/colors.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -57,6 +58,20 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
                 unselectedLabelTextStyle: TextStyle(
                   color: AppColors.textPrimary.withOpacity(0.7),
+                ),
+                trailing: Expanded(
+                  child: Align(
+                    alignment: Alignment.bottomCenter,
+                    child: Padding(
+                      padding: const EdgeInsets.only(bottom: 16.0),
+                      child: IconButton(
+                        icon: Icon(Icons.logout, color: AppColors.accent.withOpacity(0.7)),
+                        onPressed: () async {
+                          await FirebaseAuth.instance.signOut();
+                        },
+                      ),
+                    ),
+                  ),
                 ),
                 destinations: const <NavigationRailDestination>[
                   NavigationRailDestination(

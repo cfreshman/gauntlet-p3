@@ -11,24 +11,62 @@ class AuthScreen extends StatefulWidget {
   State<AuthScreen> createState() => _AuthScreenState();
 }
 
-class _AuthScreenState extends State<AuthScreen> {
+class _AuthScreenState extends State<AuthScreen> with SingleTickerProviderStateMixin {
   final _formKey = GlobalKey<FormState>();
   final _authService = AuthService();
   final _emailFocusNode = FocusNode();
   final _passwordFocusNode = FocusNode();
+  final _usernameFocusNode = FocusNode();
+  
+  late AnimationController _animationController;
+  late Animation<double> _fadeAnimation;
+  late Animation<Offset> _slideAnimation;
   
   bool _isLogin = true;
   bool _isLoading = false;
+  bool _obscurePassword = true;
   String _email = '';
   String _password = '';
   String _username = '';
   String? _errorMessage;
 
   @override
+  void initState() {
+    super.initState();
+    _animationController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 300),
+    );
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _animationController, curve: Curves.easeIn),
+    );
+    _slideAnimation = Tween<Offset>(
+      begin: const Offset(0.0, 0.1),
+      end: Offset.zero,
+    ).animate(CurvedAnimation(
+      parent: _animationController,
+      curve: Curves.easeOut,
+    ));
+    _animationController.forward();
+  }
+
+  @override
   void dispose() {
     _emailFocusNode.dispose();
     _passwordFocusNode.dispose();
+    _usernameFocusNode.dispose();
+    _animationController.dispose();
     super.dispose();
+  }
+
+  void _toggleAuthMode() {
+    setState(() {
+      _isLogin = !_isLogin;
+      _errorMessage = null;
+      _formKey.currentState?.reset();
+    });
+    _animationController.reset();
+    _animationController.forward();
   }
 
   Future<void> _submit() async {
@@ -53,10 +91,36 @@ class _AuthScreenState extends State<AuthScreen> {
           _username.trim(),
         );
       }
+    } on FirebaseAuthException catch (e) {
+      String message;
+      switch (e.code) {
+        case 'user-not-found':
+          message = 'no account found with this email';
+          break;
+        case 'wrong-password':
+          message = 'incorrect password';
+          break;
+        case 'email-already-in-use':
+          message = 'email is already registered';
+          break;
+        case 'weak-password':
+          message = 'password is too weak';
+          break;
+        case 'invalid-email':
+          message = 'invalid email address';
+          break;
+        default:
+          message = e.message ?? 'an error occurred';
+      }
+      if (mounted) {
+        setState(() {
+          _errorMessage = message.toLowerCase();
+        });
+      }
     } catch (e) {
       if (mounted) {
         setState(() {
-          _errorMessage = e.toString();
+          _errorMessage = e.toString().toLowerCase();
         });
       }
     } finally {
@@ -71,8 +135,6 @@ class _AuthScreenState extends State<AuthScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final orientation = MediaQuery.of(context).orientation;
-    final isLandscape = orientation == Orientation.landscape;
 
     return Container(
       color: AppColors.background,
@@ -83,52 +145,48 @@ class _AuthScreenState extends State<AuthScreen> {
             color: AppColors.background,
             child: Center(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.all(24),
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 600),
-                  child: isLandscape
-                      ? Row(
-                          children: [
-                            Expanded(
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Text(
-                                    'TikBlok',
-                                    style: theme.textTheme.displayMedium?.copyWith(
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 8),
-                                  Text(
-                                    'Welcome to TikBlok',
-                                    style: theme.textTheme.headlineSmall,
-                                  ),
-                                ],
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    // Left side - Logo
+                    SizedBox(
+                      width: 200,
+                      child: FadeTransition(
+                        opacity: _fadeAnimation,
+                        child: SlideTransition(
+                          position: _slideAnimation,
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.video_library,
+                                size: 48,
+                                color: AppColors.accent,
                               ),
-                            ),
-                            const SizedBox(width: 32),
-                            Expanded(child: _buildFormFields(context)),
-                          ],
-                        )
-                      : Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text(
-                              'TikBlok',
-                              style: theme.textTheme.displayMedium?.copyWith(
-                                fontWeight: FontWeight.bold,
+                              const SizedBox(height: 16),
+                              Text(
+                                'TikBlok',
+                                style: theme.textTheme.displayMedium?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                  color: AppColors.accent,
+                                ),
                               ),
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              'Welcome to TikBlok',
-                              style: theme.textTheme.headlineSmall,
-                            ),
-                            const SizedBox(height: 32),
-                            _buildFormFields(context),
-                          ],
+                            ],
+                          ),
                         ),
+                      ),
+                    ),
+                    const SizedBox(width: 32),
+                    // Right side - Form
+                    Flexible(
+                      child: Container(
+                        constraints: const BoxConstraints(maxWidth: 400),
+                        child: _buildFormFields(context),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -139,134 +197,140 @@ class _AuthScreenState extends State<AuthScreen> {
   }
 
   Widget _buildFormFields(BuildContext context) {
-    final theme = Theme.of(context);
-    return Form(
-      key: _formKey,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          if (!_isLogin) ...[
-            TextFormField(
-              decoration: const InputDecoration(
-                labelText: 'Username',
-                prefixIcon: Icon(Icons.person_outline),
-              ),
-              textInputAction: TextInputAction.next,
-              onFieldSubmitted: (_) {
-                FocusScope.of(context).requestFocus(_emailFocusNode);
-              },
-              validator: (value) {
-                if (value == null || value.isEmpty) {
-                  return 'Please enter a username';
-                }
-                if (value.length < 3) {
-                  return 'Username must be at least 3 characters';
-                }
-                return null;
-              },
-              onSaved: (value) {
-                if (value != null) {
-                  _username = value.trim();
-                }
-              },
+    return FadeTransition(
+      opacity: _fadeAnimation,
+      child: SlideTransition(
+        position: _slideAnimation,
+        child: Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: AppColors.cardBackground,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: AppColors.accent.withOpacity(0.1),
+              width: 1,
             ),
-            const SizedBox(height: 16),
-          ],
-          TextFormField(
-            decoration: InputDecoration(
-              labelText: 'Email',
-              prefixIcon: Icon(Icons.email, color: AppColors.textPrimary),
-            ),
-            keyboardType: TextInputType.emailAddress,
-            textInputAction: TextInputAction.next,
-            focusNode: _emailFocusNode,
-            onFieldSubmitted: (_) {
-              _emailFocusNode.unfocus();
-              _passwordFocusNode.requestFocus();
-            },
-            validator: (value) {
-              if (value == null || value.isEmpty) {
-                return 'Please enter your email';
-              }
-              if (!value.contains('@')) {
-                return 'Please enter a valid email';
-              }
-              return null;
-            },
-            onSaved: (value) {
-              if (value != null) {
-                _email = value.trim();
-              }
-            },
           ),
-          const SizedBox(height: 16),
-          TextFormField(
-            decoration: InputDecoration(
-              labelText: 'Password',
-              prefixIcon: Icon(Icons.lock, color: AppColors.textPrimary),
+          child: Form(
+            key: _formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (!_isLogin) ...[
+                  TextFormField(
+                    focusNode: _usernameFocusNode,
+                    textInputAction: TextInputAction.next,
+                    decoration: InputDecoration(
+                      labelText: 'username'.toLowerCase(),
+                      prefixIcon: Icon(Icons.person_outline, color: AppColors.textSecondary),
+                    ),
+                    onSaved: (value) => _username = value ?? '',
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'required';
+                      }
+                      if (!_authService.isValidUsername(value)) {
+                        return '3-8 alphanumeric characters';
+                      }
+                      return null;
+                    },
+                    onFieldSubmitted: (_) {
+                      FocusScope.of(context).requestFocus(_emailFocusNode);
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                ],
+                TextFormField(
+                  focusNode: _emailFocusNode,
+                  keyboardType: TextInputType.emailAddress,
+                  textInputAction: TextInputAction.next,
+                  decoration: InputDecoration(
+                    labelText: 'email'.toLowerCase(),
+                    prefixIcon: Icon(Icons.email_outlined, color: AppColors.textSecondary),
+                  ),
+                  onSaved: (value) => _email = value ?? '',
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'required';
+                    }
+                    if (!value.contains('@')) {
+                      return 'invalid email';
+                    }
+                    return null;
+                  },
+                  onFieldSubmitted: (_) {
+                    FocusScope.of(context).requestFocus(_passwordFocusNode);
+                  },
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  focusNode: _passwordFocusNode,
+                  obscureText: _obscurePassword,
+                  textInputAction: TextInputAction.done,
+                  decoration: InputDecoration(
+                    labelText: 'password'.toLowerCase(),
+                    prefixIcon: Icon(Icons.lock_outline, color: AppColors.textSecondary),
+                    suffixIcon: IconButton(
+                      icon: Icon(
+                        _obscurePassword ? Icons.visibility_off : Icons.visibility,
+                        color: AppColors.textSecondary,
+                      ),
+                      onPressed: () {
+                        setState(() {
+                          _obscurePassword = !_obscurePassword;
+                        });
+                      },
+                    ),
+                  ),
+                  onSaved: (value) => _password = value ?? '',
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'required';
+                    }
+                    if (!_isLogin && value.length < 6) {
+                      return 'min 6 characters';
+                    }
+                    return null;
+                  },
+                  onFieldSubmitted: (_) => _submit(),
+                ),
+                if (_errorMessage != null) ...[
+                  const SizedBox(height: 16),
+                  Text(
+                    _errorMessage!,
+                    style: TextStyle(
+                      color: AppColors.error,
+                      fontSize: 12,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+                const SizedBox(height: 24),
+                FilledButton(
+                  onPressed: _isLoading ? null : _submit,
+                  child: _isLoading
+                      ? SizedBox(
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: AppColors.background,
+                          ),
+                        )
+                      : Text(_isLogin ? 'sign in' : 'sign up'),
+                ),
+                const SizedBox(height: 16),
+                TextButton(
+                  onPressed: _isLoading ? null : _toggleAuthMode,
+                  child: Text(
+                    _isLogin ? 'create account' : 'sign in instead',
+                  ),
+                ),
+              ],
             ),
-            obscureText: true,
-            textInputAction: TextInputAction.done,
-            focusNode: _passwordFocusNode,
-            onFieldSubmitted: (_) {
-              _passwordFocusNode.unfocus();
-              _submit();
-            },
-            validator: (value) {
-              if (value == null || value.isEmpty) {
-                return 'Please enter your password';
-              }
-              if (value.length < 6) {
-                return 'Password must be at least 6 characters';
-              }
-              return null;
-            },
-            onSaved: (value) {
-              if (value != null) {
-                _password = value.trim();
-              }
-            },
           ),
-          if (_errorMessage != null) ...[
-            const SizedBox(height: 16),
-            Text(
-              _errorMessage!,
-              style: TextStyle(
-                color: AppColors.textPrimary,
-                fontWeight: FontWeight.bold,
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ],
-          const SizedBox(height: 24),
-          if (_isLoading)
-            Center(
-              child: CircularProgressIndicator(
-                color: AppColors.accent,
-              ),
-            )
-          else ...[
-            FilledButton(
-              onPressed: _submit,
-              child: Text(_isLogin ? 'Login' : 'Sign Up'),
-            ),
-            const SizedBox(height: 8),
-            TextButton(
-              onPressed: () {
-                setState(() {
-                  _isLogin = !_isLogin;
-                  _errorMessage = null;
-                });
-              },
-              child: Text(
-                _isLogin
-                    ? 'Create new account'
-                    : 'I already have an account',
-              ),
-            ),
-          ],
-        ],
+        ),
       ),
     );
   }

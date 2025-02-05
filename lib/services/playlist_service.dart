@@ -32,14 +32,14 @@ class PlaylistService {
     );
   }
 
-  // Get all playlists for the current user
-  Stream<List<Playlist>> getUserPlaylists() {
-    final user = _auth.currentUser;
-    if (user == null) return Stream.value([]);
+  // Get all playlists for a user
+  Stream<List<Playlist>> getUserPlaylists({String? userId}) {
+    final targetUserId = userId ?? _auth.currentUser?.uid;
+    if (targetUserId == null) return Stream.value([]);
 
     return _firestore
         .collection('playlists')
-        .where('userId', isEqualTo: user.uid)
+        .where('userId', isEqualTo: targetUserId)
         .orderBy('updatedAt', descending: true)
         .snapshots()
         .map((snapshot) => snapshot.docs.map((doc) => Playlist.fromFirestore(doc)).toList());

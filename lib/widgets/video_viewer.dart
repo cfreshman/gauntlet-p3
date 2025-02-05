@@ -111,189 +111,163 @@ class _VideoViewerState extends State<VideoViewer> {
       );
     }
 
-    return GestureDetector(
-      onTap: () {
-        _toggleOverlay();
-        setState(() {
-          if (_controller.value.isPlaying) {
-            _controller.pause();
-          } else {
-            _controller.play();
-          }
-        });
-      },
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          FittedBox(
-            fit: BoxFit.cover,
-            clipBehavior: Clip.hardEdge,
-            child: SizedBox(
-              width: _controller.value.size.width,
-              height: _controller.value.size.height,
-              child: VideoPlayer(_controller),
-            ),
-          ),
-          if (widget.showControls) ...[
-            // Video overlay controls
-            AnimatedOpacity(
-              opacity: _showOverlay ? 1.0 : 0.0,
-              duration: const Duration(milliseconds: 200),
-              child: Container(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      Colors.black.withOpacity(0.7),
-                      Colors.transparent,
-                      Colors.transparent,
-                      Colors.black.withOpacity(0.7),
-                    ],
-                  ),
+    return Stack(
+      children: [
+        // Video player with tap gesture
+        GestureDetector(
+          onTap: () {
+            _toggleOverlay();
+            setState(() {
+              if (_controller.value.isPlaying) {
+                _controller.pause();
+              } else {
+                _controller.play();
+              }
+            });
+          },
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              FittedBox(
+                fit: BoxFit.cover,
+                clipBehavior: Clip.hardEdge,
+                child: SizedBox(
+                  width: _controller.value.size.width,
+                  height: _controller.value.size.height,
+                  child: VideoPlayer(_controller),
                 ),
-                child: Stack(
-                  children: [
-                    // Right side controls
-                    Positioned(
-                      right: 8,
-                      bottom: 80,
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          // Like button
-                          StreamBuilder<bool>(
-                            stream: _videoService.hasLiked(widget.video.id),
-                            builder: (context, snapshot) {
-                              final hasLiked = snapshot.data ?? false;
-                              return _buildActionButton(
-                                icon: hasLiked ? Icons.favorite : Icons.favorite_border,
-                                label: widget.video.likeCount.toString(),
-                                color: hasLiked ? AppColors.accent : Colors.white,
-                                onTap: () => _videoService.toggleLike(widget.video.id),
-                              );
-                            },
-                          ),
-                          const SizedBox(height: 16),
-                          // Comment button
-                          StreamBuilder<bool>(
-                            stream: Stream.value(true), // Always build
-                            builder: (context, _) {
-                              return _buildActionButton(
-                                icon: Icons.comment_outlined,
-                                label: widget.video.commentCount.toString(),
-                                color: Colors.white,
-                                onTap: () {
-                                  // Keep overlay visible when opening comments
-                                  setState(() {
-                                    _showOverlay = true;
-                                  });
-                                  widget.onCommentTap?.call();
+              ),
+              if (widget.showControls) ...[
+                // Video overlay controls
+                AnimatedOpacity(
+                  opacity: _showOverlay ? 1.0 : 0.0,
+                  duration: const Duration(milliseconds: 200),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          Colors.black.withOpacity(0.7),
+                          Colors.transparent,
+                          Colors.transparent,
+                          Colors.black.withOpacity(0.7),
+                        ],
+                      ),
+                    ),
+                    child: Stack(
+                      children: [
+                        // Right side controls
+                        Positioned(
+                          right: 8,
+                          bottom: 80,
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              // Like button
+                              StreamBuilder<bool>(
+                                stream: _videoService.hasLiked(widget.video.id),
+                                builder: (context, snapshot) {
+                                  final hasLiked = snapshot.data ?? false;
+                                  return _buildActionButton(
+                                    icon: hasLiked ? Icons.favorite : Icons.favorite_border,
+                                    label: widget.video.likeCount.toString(),
+                                    color: hasLiked ? AppColors.accent : Colors.white,
+                                    onTap: () => _videoService.toggleLike(widget.video.id),
+                                  );
                                 },
-                              );
-                            },
-                          ),
-                          const SizedBox(height: 16),
-                          // Add to playlist button
-                          if (!widget.isInFeed)
-                            StreamBuilder<bool>(
-                              stream: Stream.value(true), // Always build
-                              builder: (context, _) {
-                                return _buildActionButton(
-                                  icon: Icons.bookmark_outline,
-                                  label: 'Playlist',
-                                  color: Colors.white,
-                                  onTap: () {
-                                    // Keep overlay visible when adding to playlist
-                                    setState(() {
-                                      _showOverlay = true;
-                                    });
-                                    showDialog(
-                                      context: context,
-                                      builder: (context) => AddToPlaylistDialog(
-                                        videoId: widget.video.id,
-                                      ),
+                              ),
+                              const SizedBox(height: 16),
+                              // Comment button
+                              StreamBuilder<bool>(
+                                stream: Stream.value(true), // Always build
+                                builder: (context, _) {
+                                  return _buildActionButton(
+                                    icon: Icons.comment_outlined,
+                                    label: widget.video.commentCount.toString(),
+                                    color: Colors.white,
+                                    onTap: () {
+                                      // Keep overlay visible when opening comments
+                                      setState(() {
+                                        _showOverlay = true;
+                                      });
+                                      widget.onCommentTap?.call();
+                                    },
+                                  );
+                                },
+                              ),
+                              const SizedBox(height: 16),
+                              // Add to playlist button
+                              if (!widget.isInFeed)
+                                StreamBuilder<bool>(
+                                  stream: Stream.value(true), // Always build
+                                  builder: (context, _) {
+                                    return _buildActionButton(
+                                      icon: Icons.bookmark_outline,
+                                      label: 'Playlist',
+                                      color: Colors.white,
+                                      onTap: () {
+                                        // Keep overlay visible when adding to playlist
+                                        setState(() {
+                                          _showOverlay = true;
+                                        });
+                                        showDialog(
+                                          context: context,
+                                          builder: (context) => AddToPlaylistDialog(
+                                            videoId: widget.video.id,
+                                          ),
+                                        );
+                                      },
                                     );
                                   },
-                                );
-                              },
-                            ),
-                        ],
-                      ),
-                    ),
-
-                    // Progress bar at bottom
-                    Positioned(
-                      left: 0,
-                      right: 0,
-                      bottom: 0,
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          // Progress bar
-                          VideoProgressIndicator(
-                            _controller,
-                            allowScrubbing: true,
-                            colors: VideoProgressColors(
-                              playedColor: AppColors.accent,
-                              bufferedColor: AppColors.accent.withOpacity(0.3),
-                              backgroundColor: AppColors.background.withOpacity(0.5),
-                            ),
-                            padding: EdgeInsets.zero,
-                          ),
-                          // Time indicator
-                          Padding(
-                            padding: const EdgeInsets.all(8.0),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text(
-                                  _formatDuration(_controller.value.position),
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 12,
-                                  ),
                                 ),
-                                Text(
-                                  _formatDuration(_controller.value.duration),
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 12,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-
-                    // Play/Pause indicator
-                    Center(
-                      child: AnimatedOpacity(
-                        opacity: !_controller.value.isPlaying && _showOverlay ? 1.0 : 0.0,
-                        duration: const Duration(milliseconds: 200),
-                        child: Container(
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            color: AppColors.background.withOpacity(0.8),
-                            borderRadius: BorderRadius.circular(50),
-                          ),
-                          child: Icon(
-                            _controller.value.isPlaying ? Icons.pause : Icons.play_arrow,
-                            size: 50,
-                            color: AppColors.accent,
+                            ],
                           ),
                         ),
-                      ),
+                      ],
                     ),
-                  ],
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+
+        // Progress bar at absolute bottom
+        if (widget.showControls)
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTapDown: (details) {
+                  final box = context.findRenderObject() as RenderBox;
+                  final tapPos = details.localPosition;
+                  final relative = tapPos.dx / box.size.width;
+                  _controller.seekTo(
+                    Duration(milliseconds: (_controller.value.duration.inMilliseconds * relative).toInt()),
+                  );
+                },
+                child: Container(
+                  height: 20,
+                  padding: const EdgeInsets.only(top: 16),
+                  child: VideoProgressIndicator(
+                    _controller,
+                    allowScrubbing: true,
+                    colors: VideoProgressColors(
+                      playedColor: AppColors.accent,
+                      bufferedColor: AppColors.accent.withOpacity(0.3),
+                      backgroundColor: AppColors.background.withOpacity(0.5),
+                    ),
+                    padding: EdgeInsets.zero,
+                  ),
                 ),
               ),
             ),
-          ],
-        ],
-      ),
+          ),
+      ],
     );
   }
 
