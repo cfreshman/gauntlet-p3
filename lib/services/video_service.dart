@@ -234,7 +234,7 @@ class VideoService {
     return snapshot.docs.map((doc) => Video.fromFirestore(doc)).toList();
   }
 
-  // Search videos by title, description, or tags
+  // Search videos by title or tags
   Future<List<Video>> searchVideos({String? query, String? tag}) async {
     Query videosQuery = _firestore.collection('videos');
 
@@ -243,12 +243,9 @@ class VideoService {
       videosQuery = videosQuery.where('tags', arrayContains: tag);
     }
 
-    // If search query is provided, filter by title or description
+    // If search query is provided, filter by title
     if (query != null && query.isNotEmpty) {
-      // Convert query to lowercase for case-insensitive search
-      final lowercaseQuery = query.toLowerCase();
-      videosQuery = videosQuery.where('title', isGreaterThanOrEqualTo: lowercaseQuery)
-          .where('title', isLessThan: lowercaseQuery + 'z');
+      videosQuery = videosQuery.where('title', isEqualTo: query);
     }
 
     // Order by creation date
