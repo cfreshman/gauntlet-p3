@@ -5,6 +5,7 @@ import '../extensions/string_extensions.dart';
 import '../screens/video_screen.dart';
 import '../screens/video_feed_screen.dart';
 import '../screens/standalone_video_screen.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class VideoPreview extends StatelessWidget {
   final Video video;
@@ -19,14 +20,30 @@ class VideoPreview extends StatelessWidget {
   const VideoPreview({
     super.key,
     required this.video,
-    this.showTitle = false,
-    this.showCreator = false,
+    this.showTitle = true,
+    this.showCreator = true,
     this.width,
     this.height,
     this.videos,
     this.currentIndex,
     this.onTap,
   });
+
+  Future<String> _getLatestUsername() async {
+    try {
+      final userDoc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(video.creatorId)
+          .get();
+      
+      if (userDoc.exists) {
+        return userDoc.data()?['displayName'] ?? video.creatorUsername;
+      }
+    } catch (e) {
+      debugPrint('Error fetching username: $e');
+    }
+    return video.creatorUsername;
+  }
 
   void _openVideo(BuildContext context) {
     Navigator.push(
@@ -123,23 +140,37 @@ class VideoPreview extends StatelessWidget {
                               fontSize: 14,
                               fontWeight: FontWeight.bold,
                             ),
-                            maxLines: 2,
+                            maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
-                          const SizedBox(height: 4),
-                        ],
-                        if (showCreator) ...[
-                          Text(
-                            video.creatorUsername.lowercase,
-                            style: TextStyle(
-                              color: AppColors.textSecondary,
-                              fontSize: 12,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
+                          const SizedBox(height: 2),
                         ],
                         Row(
                           children: [
+                            if (showCreator) 
+                              Expanded(
+                                child: FutureBuilder<String>(
+                                  future: _getLatestUsername(),
+                                  builder: (context, snapshot) {
+                                    final username = snapshot.data?.toLowerCase() ?? video.creatorUsername.toLowerCase();
+                                    return Row(
+                                      children: [
+                                        Text(
+                                          '@$username',
+                                          style: TextStyle(
+                                            color: AppColors.accent,
+                                            fontSize: 12,
+                                          ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ],
+                                    );
+                                  },
+                                ),
+                              ),
+                            if (showCreator)
+                              const SizedBox(width: 8),
                             Icon(
                               Icons.visibility_outlined,
                               size: 12,
@@ -147,7 +178,7 @@ class VideoPreview extends StatelessWidget {
                             ),
                             const SizedBox(width: 4),
                             Text(
-                              '${video.viewCount} views'.lowercase,
+                              '${video.viewCount}'.lowercase,
                               style: TextStyle(
                                 fontSize: 12,
                                 color: AppColors.accent,
@@ -232,23 +263,37 @@ class VideoPreview extends StatelessWidget {
                                 fontSize: 14,
                                 fontWeight: FontWeight.bold,
                               ),
-                              maxLines: 2,
+                              maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                             ),
-                            const SizedBox(height: 4),
-                          ],
-                          if (showCreator) ...[
-                            Text(
-                              video.creatorUsername.lowercase,
-                              style: TextStyle(
-                                color: AppColors.textSecondary,
-                                fontSize: 12,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
+                            const SizedBox(height: 2),
                           ],
                           Row(
                             children: [
+                              if (showCreator) 
+                                Expanded(
+                                  child: FutureBuilder<String>(
+                                    future: _getLatestUsername(),
+                                    builder: (context, snapshot) {
+                                      final username = snapshot.data?.toLowerCase() ?? video.creatorUsername.toLowerCase();
+                                      return Row(
+                                        children: [
+                                          Text(
+                                            '@$username',
+                                            style: TextStyle(
+                                              color: AppColors.accent,
+                                              fontSize: 12,
+                                            ),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ],
+                                      );
+                                    },
+                                  ),
+                                ),
+                              if (showCreator)
+                                const SizedBox(width: 8),
                               Icon(
                                 Icons.visibility_outlined,
                                 size: 12,
@@ -256,7 +301,7 @@ class VideoPreview extends StatelessWidget {
                               ),
                               const SizedBox(width: 4),
                               Text(
-                                '${video.viewCount} views'.lowercase,
+                                '${video.viewCount}'.lowercase,
                                 style: TextStyle(
                                   fontSize: 12,
                                   color: AppColors.accent,

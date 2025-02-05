@@ -122,8 +122,8 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
       backgroundColor: AppColors.background,
       body: SidebarLayout(
         showBackButton: true,
-        child: StreamBuilder<List<Playlist>>(
-          stream: _playlistService.getUserPlaylists(),
+        child: StreamBuilder<Playlist?>(
+          stream: _playlistService.getPlaylistById(widget.playlistId),
           builder: (context, snapshot) {
             if (snapshot.hasError) {
               return Center(
@@ -138,25 +138,39 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
               return const Center(child: LoadingIndicator());
             }
 
-            final playlist = snapshot.data!.firstWhere(
-              (p) => p.id == widget.playlistId,
-              orElse: () {
-                // If playlist not found, go back
-                Future.microtask(() => Navigator.pop(context));
-                return Playlist(
-                  id: '',
-                  name: '',
-                  userId: '',
-                  videoIds: [],
-                  updatedAt: DateTime.now(),
-                  createdAt: DateTime.now(),
-                  firstVideoThumbnail: null,
-                );
-              },
-            );
-
-            if (playlist.id.isEmpty) {
-              return const SizedBox.shrink();
+            final playlist = snapshot.data;
+            if (playlist == null) {
+              return Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.playlist_remove,
+                      size: 64,
+                      color: AppColors.accent.withOpacity(0.5),
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'playlist not found'.toLowerCase(),
+                      style: TextStyle(
+                        color: AppColors.textPrimary,
+                        fontSize: 18,
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: Text(
+                        'go back'.toLowerCase(),
+                        style: TextStyle(
+                          color: AppColors.accent,
+                          fontSize: 16,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              );
             }
 
             return Row(
