@@ -1,14 +1,19 @@
 {
-    "name": "reel_ai",
-    "short_name": "reel_ai",
+    "name": "TikBlok",
+    "short_name": "TikBlok",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#121212",
     "theme_color": "#00E676",
     "description": "A Minecraft video sharing platform.",
-    "orientation": "portrait-primary",
+    "orientation": "landscape",
     "prefer_related_applications": false,
     "icons": [
+        {
+            "src": "favicon.png",
+            "sizes": "64x64",
+            "type": "image/png"
+        },
         {
             "src": "icons/Icon-192.png",
             "sizes": "192x192",

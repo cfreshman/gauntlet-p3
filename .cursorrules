@@ -1,5 +1,7 @@
-# Code Modification Rules
+# Rules
 1. DO NOT remove unrelated code when making changes
 
 2. Package Version Management
    - Your package version (what you think is the latest package) may be out of date, check manually first 
+
+3. Suggest things that would be useful to add here in the .cursorrules when you think of them

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import '../models/video.dart';
 import '../services/video_service.dart';
 import '../theme/colors.dart';
@@ -41,13 +42,22 @@ class _VideoViewerState extends State<VideoViewer> {
   }
 
   Future<void> _initializeController() async {
-    _controller = VideoPlayerController.network(widget.video.videoUrl);
+    _controller = VideoPlayerController.network(
+      widget.video.videoUrl,
+      videoPlayerOptions: VideoPlayerOptions(
+        mixWithOthers: true,
+      ),
+    );
     
     try {
       await _controller.initialize();
       _controller.addListener(_handleVideoProgress);
       
       if (widget.autoPlay) {
+        // Only start muted on web
+        if (kIsWeb) {
+          await _controller.setVolume(0.0);
+        }
         await _controller.play();
       }
       
@@ -126,6 +136,15 @@ class _VideoViewerState extends State<VideoViewer> {
               }
             });
           },
+          onDoubleTap: () {
+            setState(() {
+              if (_controller.value.volume > 0) {
+                _controller.setVolume(0.0);
+              } else {
+                _controller.setVolume(1.0);
+              }
+            });
+          },
           child: Stack(
             fit: StackFit.expand,
             children: [
@@ -138,6 +157,40 @@ class _VideoViewerState extends State<VideoViewer> {
                   child: VideoPlayer(_controller),
                 ),
               ),
+              
+              // Volume indicator
+              if (_controller.value.volume == 0)
+                Positioned(
+                  top: 16,
+                  right: 16,
+                  child: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: AppColors.background.withOpacity(0.7),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.volume_off,
+                          color: AppColors.textPrimary,
+                          size: 20,
+                        ),
+                        if (kIsWeb) ...[
+                          const SizedBox(width: 8),
+                          Text(
+                            'double tap to unmute',
+                            style: TextStyle(
+                              color: AppColors.textPrimary,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
             ],
           ),
         ),

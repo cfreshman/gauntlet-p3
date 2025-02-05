@@ -215,15 +215,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                     const SizedBox(height: 16),
                     // Stats
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                      children: [
-                        _buildStatColumn('Videos', _userVideos.length.toString()),
-                        _buildStatColumn('Views', _userVideos.fold<int>(0, (sum, video) => sum + video.viewCount).toString()),
-                        _buildStatColumn('Likes', _userVideos.fold<int>(0, (sum, video) => sum + video.likeCount).toString()),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
+                    if (_userVideos.isNotEmpty) ...[
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                        children: [
+                          _buildStatColumn('videos', _userVideos.length.toString()),
+                          _buildStatColumn('views', _userVideos.fold<int>(0, (sum, video) => sum + video.viewCount).toString()),
+                          _buildStatColumn('likes', _userVideos.fold<int>(0, (sum, video) => sum + video.likeCount).toString()),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                    ],
                     // Edit Profile Button - only show for current user
                     if (_isCurrentUser)
                       FilledButton.tonal(
@@ -327,7 +329,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     if (_userVideos.isEmpty) {
       return Center(
         child: Text(
-          'No videos uploaded yet'.lowercase,
+          'no videos uploaded yet'.toLowerCase(),
           style: TextStyle(color: AppColors.textPrimary),
         ),
       );
@@ -379,7 +381,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         if (playlists.isEmpty) {
           return Center(
             child: Text(
-              'No playlists yet',
+              'no playlists yet'.toLowerCase(),
               style: TextStyle(color: AppColors.textSecondary),
             ),
           );
