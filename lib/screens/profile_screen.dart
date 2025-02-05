@@ -8,6 +8,8 @@ import '../extensions/string_extensions.dart';
 import '../widgets/video_preview.dart';
 import '../services/playlist_service.dart';
 import '../screens/playlist_detail_screen.dart';
+import 'edit_profile_screen.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -23,6 +25,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   bool _showVideos = false;
   bool _isLoading = true;
   List<Video> _userVideos = [];
+  String _bio = 'new user';
   
   String get _username => _auth.currentUser?.displayName ?? 'Anonymous';
   String? get _photoUrl => _auth.currentUser?.photoURL;
@@ -31,6 +34,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   void initState() {
     super.initState();
     _loadUserVideos();
+    _loadUserBio();
   }
   
   Future<void> _loadUserVideos() async {
@@ -51,6 +55,30 @@ class _ProfileScreenState extends State<ProfileScreen> {
       print('Error loading videos: $e');
       setState(() => _isLoading = false);
     }
+  }
+
+  Future<void> _loadUserBio() async {
+    if (_auth.currentUser == null) return;
+    
+    try {
+      final userDoc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(_auth.currentUser!.uid)
+          .get();
+          
+      if (userDoc.exists && mounted) {
+        setState(() {
+          _bio = userDoc.data()?['bio'] ?? 'new user';
+        });
+      }
+    } catch (e) {
+      print('Error loading bio: $e');
+    }
+  }
+
+  void _refreshProfile() {
+    _loadUserVideos();
+    _loadUserBio();
   }
 
   @override
@@ -102,7 +130,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               const SizedBox(height: 8),
               // Bio
               Text(
-                'Video creator'.lowercase,
+                _bio.lowercase,
                 style: TextStyle(
                   color: AppColors.textPrimary,
                 ),
@@ -120,10 +148,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
               const SizedBox(height: 16),
               // Edit Profile Button
               FilledButton.tonal(
-                onPressed: () {
-                  // TODO: Implement edit profile
+                onPressed: () async {
+                  await Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const EditProfileScreen(),
+                    ),
+                  );
+                  _refreshProfile();
                 },
-                child: const Text('Edit Profile'),
+                child: Text('edit profile'.lowercase),
               ),
             ],
           ),
