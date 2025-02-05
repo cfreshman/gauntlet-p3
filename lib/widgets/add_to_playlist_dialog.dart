@@ -98,125 +98,127 @@ class _AddToPlaylistDialogState extends State<AddToPlaylistDialog> {
       child: Container(
         width: 400,
         padding: const EdgeInsets.all(16),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(
-              'add to playlist'.toLowerCase(),
-              style: TextStyle(
-                color: AppColors.textPrimary,
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 16),
-            if (_isCreatingPlaylist) ...[
-              TextField(
-                controller: _nameController,
-                autofocus: true,
-                style: TextStyle(color: AppColors.textPrimary),
-                decoration: InputDecoration(
-                  hintText: 'playlist name'.toLowerCase(),
-                  hintStyle: TextStyle(color: AppColors.textSecondary),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide: BorderSide(color: AppColors.accent),
-                  ),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                'add to playlist'.toLowerCase(),
+                style: TextStyle(
+                  color: AppColors.textPrimary,
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
                 ),
               ),
               const SizedBox(height: 16),
-              ElevatedButton(
-                onPressed: _createPlaylist,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.accent,
-                  foregroundColor: AppColors.background,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
+              if (_isCreatingPlaylist) ...[
+                TextField(
+                  controller: _nameController,
+                  autofocus: true,
+                  style: TextStyle(color: AppColors.textPrimary),
+                  decoration: InputDecoration(
+                    hintText: 'playlist name'.toLowerCase(),
+                    hintStyle: TextStyle(color: AppColors.textSecondary),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide(color: AppColors.accent),
+                    ),
                   ),
                 ),
-                child: Text('create playlist'.toLowerCase()),
-              ),
-              TextButton(
-                onPressed: () => setState(() => _isCreatingPlaylist = false),
-                child: Text(
-                  'cancel'.toLowerCase(),
-                  style: TextStyle(color: AppColors.accent),
+                const SizedBox(height: 16),
+                ElevatedButton(
+                  onPressed: _createPlaylist,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.accent,
+                    foregroundColor: AppColors.background,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  child: Text('create playlist'.toLowerCase()),
                 ),
-              ),
-            ] else ...[
-              StreamBuilder<List<Playlist>>(
-                stream: _playlistService.getUserPlaylists(),
-                builder: (context, snapshot) {
-                  if (snapshot.hasError) {
-                    return Text(
-                      'error: ${snapshot.error}'.toLowerCase(),
-                      style: TextStyle(color: Colors.red),
-                    );
-                  }
+                TextButton(
+                  onPressed: () => setState(() => _isCreatingPlaylist = false),
+                  child: Text(
+                    'cancel'.toLowerCase(),
+                    style: TextStyle(color: AppColors.accent),
+                  ),
+                ),
+              ] else ...[
+                StreamBuilder<List<Playlist>>(
+                  stream: _playlistService.getUserPlaylists(),
+                  builder: (context, snapshot) {
+                    if (snapshot.hasError) {
+                      return Text(
+                        'error: ${snapshot.error}'.toLowerCase(),
+                        style: TextStyle(color: Colors.red),
+                      );
+                    }
 
-                  if (!snapshot.hasData) {
-                    return const Center(child: CircularProgressIndicator());
-                  }
+                    if (!snapshot.hasData) {
+                      return const Center(child: CircularProgressIndicator());
+                    }
 
-                  final playlists = snapshot.data!;
-                  if (playlists.isEmpty) {
-                    return Center(
-                      child: Text(
-                        'no playlists yet'.toLowerCase(),
-                        style: TextStyle(color: AppColors.textSecondary),
+                    final playlists = snapshot.data!;
+                    if (playlists.isEmpty) {
+                      return Center(
+                        child: Text(
+                          'no playlists yet'.toLowerCase(),
+                          style: TextStyle(color: AppColors.textSecondary),
+                        ),
+                      );
+                    }
+
+                    return SizedBox(
+                      height: 200,
+                      child: ListView.builder(
+                        itemCount: playlists.length,
+                        itemBuilder: (context, index) {
+                          final playlist = playlists[index];
+                          final isInPlaylist = playlist.videoIds.contains(widget.videoId);
+                          return ListTile(
+                            title: Text(
+                              playlist.name.toLowerCase(),
+                              style: TextStyle(color: AppColors.textPrimary),
+                            ),
+                            subtitle: Text(
+                              '${playlist.videoIds.length} videos'.toLowerCase(),
+                              style: TextStyle(color: AppColors.textSecondary),
+                            ),
+                            trailing: Text(
+                              (isInPlaylist ? 'remove' : 'add').toLowerCase(),
+                              style: TextStyle(
+                                color: isInPlaylist ? Colors.red : AppColors.accent,
+                              ),
+                            ),
+                            onTap: () => _toggleInPlaylist(playlist),
+                          );
+                        },
                       ),
                     );
-                  }
-
-                  return SizedBox(
-                    height: 200,
-                    child: ListView.builder(
-                      itemCount: playlists.length,
-                      itemBuilder: (context, index) {
-                        final playlist = playlists[index];
-                        final isInPlaylist = playlist.videoIds.contains(widget.videoId);
-                        return ListTile(
-                          title: Text(
-                            playlist.name.toLowerCase(),
-                            style: TextStyle(color: AppColors.textPrimary),
-                          ),
-                          subtitle: Text(
-                            '${playlist.videoIds.length} videos'.toLowerCase(),
-                            style: TextStyle(color: AppColors.textSecondary),
-                          ),
-                          trailing: Text(
-                            (isInPlaylist ? 'remove' : 'add').toLowerCase(),
-                            style: TextStyle(
-                              color: isInPlaylist ? Colors.red : AppColors.accent,
-                            ),
-                          ),
-                          onTap: () => _toggleInPlaylist(playlist),
-                        );
-                      },
-                    ),
-                  );
-                },
-              ),
-              const SizedBox(height: 16),
-              OutlinedButton(
-                onPressed: () => setState(() => _isCreatingPlaylist = true),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: AppColors.accent,
-                  side: BorderSide(color: AppColors.accent),
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
+                  },
                 ),
-                child: Text('create new playlist'.toLowerCase()),
-              ),
+                const SizedBox(height: 16),
+                OutlinedButton(
+                  onPressed: () => setState(() => _isCreatingPlaylist = true),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppColors.accent,
+                    side: BorderSide(color: AppColors.accent),
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  child: Text('create new playlist'.toLowerCase()),
+                ),
+              ],
             ],
-          ],
+          ),
         ),
       ),
     );

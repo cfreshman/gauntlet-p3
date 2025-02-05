@@ -167,88 +167,90 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           ),
         ],
       ),
-      body: _isLoading
-          ? const Center(child: LoadingIndicator())
-          : SingleChildScrollView(
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                children: [
-                  // Profile photo
-                  GestureDetector(
-                    onTap: _pickImage,
-                    child: Stack(
-                      children: [
-                        CircleAvatar(
-                          radius: 50,
-                          backgroundColor: AppColors.accent,
-                          backgroundImage: _photoUrl != null ? NetworkImage(_photoUrl!) : null,
-                          child: _photoUrl == null ? Icon(
-                            Icons.person,
-                            size: 50,
-                            color: AppColors.textPrimary,
-                          ) : null,
-                        ),
-                        Positioned(
-                          right: 0,
-                          bottom: 0,
-                          child: Container(
-                            padding: const EdgeInsets.all(4),
-                            decoration: BoxDecoration(
-                              color: AppColors.accent,
-                              shape: BoxShape.circle,
-                            ),
-                            child: Icon(
-                              Icons.edit,
-                              size: 16,
-                              color: AppColors.background,
+      body: SafeArea(
+        child: _isLoading
+            ? const Center(child: LoadingIndicator())
+            : SingleChildScrollView(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  children: [
+                    // Profile photo
+                    GestureDetector(
+                      onTap: _pickImage,
+                      child: Stack(
+                        children: [
+                          CircleAvatar(
+                            radius: 50,
+                            backgroundColor: AppColors.accent,
+                            backgroundImage: _photoUrl != null ? NetworkImage(_photoUrl!) : null,
+                            child: _photoUrl == null ? Icon(
+                              Icons.person,
+                              size: 50,
+                              color: AppColors.textPrimary,
+                            ) : null,
+                          ),
+                          Positioned(
+                            right: 0,
+                            bottom: 0,
+                            child: Container(
+                              padding: const EdgeInsets.all(4),
+                              decoration: BoxDecoration(
+                                color: AppColors.accent,
+                                shape: BoxShape.circle,
+                              ),
+                              child: Icon(
+                                Icons.edit,
+                                size: 16,
+                                color: AppColors.background,
+                              ),
                             ),
                           ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+
+                    // Username
+                    TextField(
+                      controller: _usernameController,
+                      style: TextStyle(color: AppColors.textPrimary),
+                      decoration: InputDecoration(
+                        labelText: 'username'.lowercase,
+                        labelStyle: TextStyle(color: AppColors.textSecondary),
+                        helperText: '3-8 alphanumeric characters'.lowercase,
+                        helperStyle: TextStyle(color: AppColors.textSecondary),
+                        enabledBorder: UnderlineInputBorder(
+                          borderSide: BorderSide(color: AppColors.textSecondary),
                         ),
-                      ],
+                        focusedBorder: UnderlineInputBorder(
+                          borderSide: BorderSide(color: AppColors.accent),
+                        ),
+                      ),
+                      onChanged: (_) => setState(() => _hasChanges = true),
                     ),
-                  ),
-                  const SizedBox(height: 24),
+                    const SizedBox(height: 16),
 
-                  // Username
-                  TextField(
-                    controller: _usernameController,
-                    style: TextStyle(color: AppColors.textPrimary),
-                    decoration: InputDecoration(
-                      labelText: 'username'.lowercase,
-                      labelStyle: TextStyle(color: AppColors.textSecondary),
-                      helperText: '3-8 alphanumeric characters'.lowercase,
-                      helperStyle: TextStyle(color: AppColors.textSecondary),
-                      enabledBorder: UnderlineInputBorder(
-                        borderSide: BorderSide(color: AppColors.textSecondary),
+                    // Bio
+                    TextField(
+                      controller: _bioController,
+                      style: TextStyle(color: AppColors.textPrimary),
+                      maxLines: 3,
+                      decoration: InputDecoration(
+                        labelText: 'bio'.lowercase,
+                        labelStyle: TextStyle(color: AppColors.textSecondary),
+                        enabledBorder: UnderlineInputBorder(
+                          borderSide: BorderSide(color: AppColors.textSecondary),
+                        ),
+                        focusedBorder: UnderlineInputBorder(
+                          borderSide: BorderSide(color: AppColors.accent),
+                        ),
                       ),
-                      focusedBorder: UnderlineInputBorder(
-                        borderSide: BorderSide(color: AppColors.accent),
-                      ),
+                      onChanged: (_) => setState(() => _hasChanges = true),
                     ),
-                    onChanged: (_) => setState(() => _hasChanges = true),
-                  ),
-                  const SizedBox(height: 16),
-
-                  // Bio
-                  TextField(
-                    controller: _bioController,
-                    style: TextStyle(color: AppColors.textPrimary),
-                    maxLines: 3,
-                    decoration: InputDecoration(
-                      labelText: 'bio'.lowercase,
-                      labelStyle: TextStyle(color: AppColors.textSecondary),
-                      enabledBorder: UnderlineInputBorder(
-                        borderSide: BorderSide(color: AppColors.textSecondary),
-                      ),
-                      focusedBorder: UnderlineInputBorder(
-                        borderSide: BorderSide(color: AppColors.accent),
-                      ),
-                    ),
-                    onChanged: (_) => setState(() => _hasChanges = true),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
+      ),
     );
   }
 } 
