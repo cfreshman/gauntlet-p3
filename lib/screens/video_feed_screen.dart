@@ -10,6 +10,7 @@ import '../widgets/video_viewer.dart';
 import '../widgets/sidebar_layout.dart';
 import '../widgets/comment_list.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../widgets/add_to_playlist_dialog.dart';
 
 class VideoFeedScreen extends StatefulWidget {
   final List<Video>? videos;  // Optional list of videos to show instead of feed
@@ -298,7 +299,7 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
                               video: video,
                               autoPlay: true,
                               showControls: true,
-                              isInFeed: true,
+                              isInFeed: false,
                               onCommentTap: _toggleComments,
                             ),
 
@@ -495,6 +496,31 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
                                           ),
                                         ),
                                       ],
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(height: 12),
+
+                                // Add to playlist button
+                                GestureDetector(
+                                  onTap: () {
+                                    showDialog(
+                                      context: context,
+                                      builder: (context) => AddToPlaylistDialog(
+                                        videoId: video.id,
+                                      ),
+                                    );
+                                  },
+                                  child: Container(
+                                    padding: const EdgeInsets.all(12),
+                                    decoration: BoxDecoration(
+                                      color: AppColors.background.withOpacity(0.5),
+                                      borderRadius: BorderRadius.circular(24),
+                                    ),
+                                    child: Icon(
+                                      Icons.bookmark_outline,
+                                      size: 28,
+                                      color: AppColors.textPrimary,
                                     ),
                                   ),
                                 ),

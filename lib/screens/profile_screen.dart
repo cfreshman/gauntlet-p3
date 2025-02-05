@@ -3,8 +3,11 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../theme/colors.dart';
 import '../services/video_service.dart';
 import '../models/video.dart';
+import '../models/playlist.dart';
 import '../extensions/string_extensions.dart';
 import '../widgets/video_preview.dart';
+import '../services/playlist_service.dart';
+import '../screens/playlist_detail_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -16,6 +19,7 @@ class ProfileScreen extends StatefulWidget {
 class _ProfileScreenState extends State<ProfileScreen> {
   final _videoService = VideoService();
   final _auth = FirebaseAuth.instance;
+  final _playlistService = PlaylistService();
   bool _showVideos = false;
   bool _isLoading = true;
   List<Video> _userVideos = [];
@@ -236,66 +240,119 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Widget _buildPlaylistsList() {
-    return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: 5,
-      itemBuilder: (context, index) {
-        return Container(
-          height: 100,
-          margin: const EdgeInsets.only(bottom: 16),
-          decoration: BoxDecoration(
-            color: AppColors.background.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Row(
-            children: [
-              // Playlist thumbnail
-              AspectRatio(
-                aspectRatio: 16 / 9,
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: AppColors.background.withOpacity(0.2),
-                    borderRadius: const BorderRadius.horizontal(
-                      left: Radius.circular(8),
-                    ),
-                  ),
-                  child: Icon(
-                    Icons.playlist_play,
-                    size: 32,
-                    color: AppColors.accent,
-                  ),
-                ),
+    return StreamBuilder<List<Playlist>>(
+      stream: _playlistService.getUserPlaylists(),
+      builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return Center(
+            child: Text(
+              'Error: ${snapshot.error}',
+              style: TextStyle(color: Colors.red),
+            ),
+          );
+        }
+
+        if (!snapshot.hasData) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        final playlists = snapshot.data!;
+        if (playlists.isEmpty) {
+          return Center(
+            child: Text(
+              'No playlists yet',
+              style: TextStyle(color: AppColors.textSecondary),
+            ),
+          );
+        }
+
+        return ListView.builder(
+          padding: const EdgeInsets.all(16),
+          itemCount: playlists.length,
+          itemBuilder: (context, index) {
+            final playlist = playlists[index];
+            return Container(
+              height: 100,
+              margin: const EdgeInsets.only(bottom: 16),
+              decoration: BoxDecoration(
+                color: AppColors.background.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
               ),
-              // Playlist info
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        'Playlist ${index + 1}'.lowercase,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
-                          color: AppColors.textPrimary,
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => PlaylistDetailScreen(
+                          playlistId: playlist.id,
                         ),
                       ),
-                      const SizedBox(height: 4),
-                      Text(
-                        '${(index + 1) * 5} videos'.lowercase,
-                        style: TextStyle(
-                          color: AppColors.textPrimary,
-                          fontSize: 14,
+                    );
+                  },
+                  borderRadius: BorderRadius.circular(8),
+                  child: Row(
+                    children: [
+                      // Playlist thumbnail
+                      AspectRatio(
+                        aspectRatio: 16 / 9,
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: AppColors.background.withOpacity(0.2),
+                            borderRadius: const BorderRadius.horizontal(
+                              left: Radius.circular(8),
+                            ),
+                            image: playlist.firstVideoThumbnail != null
+                                ? DecorationImage(
+                                    image: NetworkImage(playlist.firstVideoThumbnail!),
+                                    fit: BoxFit.cover,
+                                  )
+                                : null,
+                          ),
+                          child: playlist.firstVideoThumbnail == null
+                              ? Icon(
+                                  Icons.playlist_play,
+                                  size: 32,
+                                  color: AppColors.accent,
+                                )
+                              : null,
+                        ),
+                      ),
+                      // Playlist info
+                      Expanded(
+                        child: Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(
+                                playlist.name.lowercase,
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                  color: AppColors.textPrimary,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                '${playlist.videoIds.length} videos'.lowercase,
+                                style: TextStyle(
+                                  color: AppColors.textPrimary,
+                                  fontSize: 14,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     ],
                   ),
                 ),
               ),
-            ],
-          ),
+            );
+          },
         );
       },
     );

@@ -7,6 +7,7 @@ class Playlist {
   final List<String> videoIds;
   final DateTime createdAt;
   final DateTime updatedAt;
+  final String? firstVideoThumbnail;  // Optional thumbnail from first video
 
   Playlist({
     required this.id,
@@ -15,6 +16,7 @@ class Playlist {
     this.videoIds = const [],
     required this.createdAt,
     required this.updatedAt,
+    this.firstVideoThumbnail,
   });
 
   factory Playlist.fromFirestore(DocumentSnapshot doc) {
@@ -26,6 +28,7 @@ class Playlist {
       videoIds: List<String>.from(data['videoIds'] ?? []),
       createdAt: (data['createdAt'] as Timestamp).toDate(),
       updatedAt: (data['updatedAt'] as Timestamp).toDate(),
+      firstVideoThumbnail: data['firstVideoThumbnail'],
     );
   }
 
@@ -36,6 +39,23 @@ class Playlist {
       'videoIds': videoIds,
       'createdAt': Timestamp.fromDate(createdAt),
       'updatedAt': Timestamp.fromDate(updatedAt),
+      'firstVideoThumbnail': firstVideoThumbnail,
     };
+  }
+
+  Playlist copyWith({
+    String? name,
+    List<String>? videoIds,
+    String? firstVideoThumbnail,
+  }) {
+    return Playlist(
+      id: id,
+      name: name ?? this.name,
+      userId: userId,
+      videoIds: videoIds ?? this.videoIds,
+      createdAt: createdAt,
+      updatedAt: DateTime.now(),
+      firstVideoThumbnail: firstVideoThumbnail ?? this.firstVideoThumbnail,
+    );
   }
 } 

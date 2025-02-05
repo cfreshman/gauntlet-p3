@@ -3,6 +3,7 @@ import 'package:video_player/video_player.dart';
 import '../models/video.dart';
 import '../services/video_service.dart';
 import '../theme/colors.dart';
+import 'add_to_playlist_dialog.dart';
 
 class VideoViewer extends StatefulWidget {
   final Video video;
@@ -154,48 +155,72 @@ class _VideoViewerState extends State<VideoViewer> {
                 child: Stack(
                   children: [
                     // Right side controls
-                    if (!widget.isInFeed)
-                      Positioned(
-                        right: 8,
-                        bottom: 80,
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            // Like button
-                            StreamBuilder<bool>(
-                              stream: _videoService.hasLiked(widget.video.id),
-                              builder: (context, snapshot) {
-                                final hasLiked = snapshot.data ?? false;
-                                return _buildActionButton(
-                                  icon: hasLiked ? Icons.favorite : Icons.favorite_border,
-                                  label: widget.video.likeCount.toString(),
-                                  color: hasLiked ? AppColors.accent : Colors.white,
-                                  onTap: () => _videoService.toggleLike(widget.video.id),
-                                );
-                              },
-                            ),
-                            const SizedBox(height: 16),
-                            // Comment button
+                    Positioned(
+                      right: 8,
+                      bottom: 80,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          // Like button
+                          StreamBuilder<bool>(
+                            stream: _videoService.hasLiked(widget.video.id),
+                            builder: (context, snapshot) {
+                              final hasLiked = snapshot.data ?? false;
+                              return _buildActionButton(
+                                icon: hasLiked ? Icons.favorite : Icons.favorite_border,
+                                label: widget.video.likeCount.toString(),
+                                color: hasLiked ? AppColors.accent : Colors.white,
+                                onTap: () => _videoService.toggleLike(widget.video.id),
+                              );
+                            },
+                          ),
+                          const SizedBox(height: 16),
+                          // Comment button
+                          StreamBuilder<bool>(
+                            stream: Stream.value(true), // Always build
+                            builder: (context, _) {
+                              return _buildActionButton(
+                                icon: Icons.comment_outlined,
+                                label: widget.video.commentCount.toString(),
+                                color: Colors.white,
+                                onTap: () {
+                                  // Keep overlay visible when opening comments
+                                  setState(() {
+                                    _showOverlay = true;
+                                  });
+                                  widget.onCommentTap?.call();
+                                },
+                              );
+                            },
+                          ),
+                          const SizedBox(height: 16),
+                          // Add to playlist button
+                          if (!widget.isInFeed)
                             StreamBuilder<bool>(
                               stream: Stream.value(true), // Always build
                               builder: (context, _) {
                                 return _buildActionButton(
-                                  icon: Icons.comment_outlined,
-                                  label: widget.video.commentCount.toString(),
+                                  icon: Icons.bookmark_outline,
+                                  label: 'Playlist',
                                   color: Colors.white,
                                   onTap: () {
-                                    // Keep overlay visible when opening comments
+                                    // Keep overlay visible when adding to playlist
                                     setState(() {
                                       _showOverlay = true;
                                     });
-                                    widget.onCommentTap?.call();
+                                    showDialog(
+                                      context: context,
+                                      builder: (context) => AddToPlaylistDialog(
+                                        videoId: widget.video.id,
+                                      ),
+                                    );
                                   },
                                 );
                               },
                             ),
-                          ],
-                        ),
+                        ],
                       ),
+                    ),
 
                     // Progress bar at bottom
                     Positioned(
