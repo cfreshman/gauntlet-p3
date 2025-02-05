@@ -610,38 +610,44 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
                                             .snapshots(),
                                         builder: (context, snapshot) {
                                           String? photoUrl;
+                                          String username = video.creatorUsername; // Fallback to stored username
                                           if (snapshot.hasData && snapshot.data!.exists) {
                                             final userData = snapshot.data!.data() as Map<String, dynamic>;
                                             photoUrl = userData['photoUrl'] as String?;
+                                            username = userData['displayName'] ?? video.creatorUsername;
                                           }
                                           
-                                          return CircleAvatar(
-                                            radius: 20,
-                                            backgroundColor: AppColors.accent,
-                                            backgroundImage: photoUrl != null ? NetworkImage(photoUrl) : null,
-                                            child: photoUrl == null ? Text(
-                                              video.creatorUsername[0].toUpperCase(),
-                                              style: TextStyle(
-                                                color: AppColors.background,
-                                                fontWeight: FontWeight.bold,
+                                          return Column(
+                                            children: [
+                                              CircleAvatar(
+                                                radius: 20,
+                                                backgroundColor: AppColors.accent,
+                                                backgroundImage: photoUrl != null ? NetworkImage(photoUrl) : null,
+                                                child: photoUrl == null ? Text(
+                                                  username[0].toUpperCase(),
+                                                  style: TextStyle(
+                                                    color: AppColors.background,
+                                                    fontWeight: FontWeight.bold,
+                                                  ),
+                                                ) : null,
                                               ),
-                                            ) : null,
+                                              const SizedBox(height: 4),
+                                              Text(
+                                                '@$username'.toLowerCase(),
+                                                style: TextStyle(
+                                                  color: AppColors.textPrimary,
+                                                  fontSize: 12,
+                                                ),
+                                              ),
+                                            ],
                                           );
                                         },
                                       ),
-                                      const SizedBox(height: 4),
-                                      Text(
-                                        '@${video.creatorUsername}'.toLowerCase(),
-                                        style: TextStyle(
-                                          color: AppColors.textPrimary,
-                                          fontSize: 12,
-                                        ),
-                                      ),
+                                      const SizedBox(height: 8),
+                                      _buildVideoActions(video),
                                     ],
                                   ),
                                 ),
-                                const SizedBox(height: 8),
-                                _buildVideoActions(video),
                               ],
                             ),
                           ),
