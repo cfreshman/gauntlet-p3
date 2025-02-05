@@ -98,82 +98,80 @@ class _SearchScreenState extends State<SearchScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return SafeArea(
-      child: Container(
-        decoration: BoxDecoration(
-          color: AppColors.background,
-        ),
-        child: Column(
-          children: [
-            // Search bar
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: TextField(
-                controller: _searchController,
-                onChanged: _onSearchChanged,
-                style: TextStyle(color: AppColors.textPrimary),
-                decoration: InputDecoration(
-                  hintText: 'Search videos...'.lowercase,
-                  prefixIcon: Icon(Icons.search, color: AppColors.textPrimary),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.background,
+      ),
+      child: Column(
+        children: [
+          // Search bar
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: TextField(
+              controller: _searchController,
+              onChanged: _onSearchChanged,
+              style: TextStyle(color: AppColors.textPrimary),
+              decoration: InputDecoration(
+                hintText: 'Search videos...'.lowercase,
+                prefixIcon: Icon(Icons.search, color: AppColors.textPrimary),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
                 ),
               ),
             ),
+          ),
 
-            // Trending hashtags
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              child: SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
-                  children: MinecraftTags.all.map(_buildTagChip).toList(),
-                ),
+          // Trending hashtags
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: MinecraftTags.all.map(_buildTagChip).toList(),
               ),
             ),
+          ),
 
-            // Video grid
-            Expanded(
-              child: _isLoading
-                  ? Center(
-                      child: CircularProgressIndicator(
-                        color: AppColors.accent,
-                      ),
-                    )
-                  : _videos.isEmpty
-                      ? Center(
-                          child: Text(
-                            'No videos found'.lowercase,
-                            style: TextStyle(color: AppColors.textPrimary),
-                          ),
-                        )
-                      : GridView.builder(
-                          padding: const EdgeInsets.all(16),
-                          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: 3,
-                            childAspectRatio: 16 / 9,
-                            mainAxisSpacing: 16,
-                            crossAxisSpacing: 16,
-                          ),
-                          itemCount: _videos.length,
-                          itemBuilder: (context, index) {
-                            final video = _videos[index];
-                            return SizedBox(
-                              height: 180,
-                              child: VideoPreview(
-                                video: video,
-                                showTitle: true,
-                                showCreator: false,
-                                videos: _videos,
-                                currentIndex: index,
-                              ),
-                            );
-                          },
+          // Video grid
+          Expanded(
+            child: _isLoading
+                ? Center(
+                    child: CircularProgressIndicator(
+                      color: AppColors.accent,
+                    ),
+                  )
+                : _videos.isEmpty
+                    ? Center(
+                        child: Text(
+                          'No videos found'.lowercase,
+                          style: TextStyle(color: AppColors.textPrimary),
                         ),
-            ),
-          ],
-        ),
+                      )
+                    : GridView.builder(
+                        padding: const EdgeInsets.all(16),
+                        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 3,
+                          childAspectRatio: 16 / 9,
+                          mainAxisSpacing: 16,
+                          crossAxisSpacing: 16,
+                        ),
+                        itemCount: _videos.length,
+                        itemBuilder: (context, index) {
+                          final video = _videos[index];
+                          return SizedBox(
+                            height: 180,
+                            child: VideoPreview(
+                              video: video,
+                              showTitle: true,
+                              showCreator: false,
+                              videos: _videos,
+                              currentIndex: index,
+                            ),
+                          );
+                        },
+                      ),
+          ),
+        ],
       ),
     );
   }

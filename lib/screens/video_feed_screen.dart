@@ -321,423 +321,421 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
-      body: SafeArea(
-        child: SidebarLayout(
-          showBackButton: widget.showBackSidebar && widget.videos != null,
-          child: StreamBuilder<List<Video>>(
-            stream: widget.videos != null 
-                ? Stream.value(widget.videos!) 
-                : _videoService.getVideoFeed(),
-            builder: (context, snapshot) {
-              if (snapshot.hasError) {
-                return Center(
-                  child: Text(
-                    'Error loading videos',
-                    style: TextStyle(color: AppColors.textPrimary),
-                  ),
-                );
-              }
+      body: SidebarLayout(
+        showBackButton: widget.showBackSidebar && widget.videos != null,
+        child: StreamBuilder<List<Video>>(
+          stream: widget.videos != null 
+              ? Stream.value(widget.videos!) 
+              : _videoService.getVideoFeed(),
+          builder: (context, snapshot) {
+            if (snapshot.hasError) {
+              return Center(
+                child: Text(
+                  'Error loading videos',
+                  style: TextStyle(color: AppColors.textPrimary),
+                ),
+              );
+            }
 
-              if (!snapshot.hasData) {
-                return const Center(child: LoadingIndicator());
-              }
+            if (!snapshot.hasData) {
+              return const Center(child: LoadingIndicator());
+            }
 
-              final videos = snapshot.data!;
-              
-              if (videos.isEmpty) {
-                return Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        Icons.video_library_outlined,
-                        size: 64,
-                        color: AppColors.accent,
+            final videos = snapshot.data!;
+            
+            if (videos.isEmpty) {
+              return Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.video_library_outlined,
+                      size: 64,
+                      color: AppColors.accent,
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'no videos yet'.toLowerCase(),
+                      style: TextStyle(
+                        color: AppColors.textPrimary,
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
                       ),
-                      const SizedBox(height: 16),
-                      Text(
-                        'no videos yet'.toLowerCase(),
-                        style: TextStyle(
-                          color: AppColors.textPrimary,
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'be the first to upload!'.toLowerCase(),
+                      style: TextStyle(
+                        color: AppColors.textSecondary,
+                        fontSize: 14,
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    TextButton(
+                      onPressed: _pickVideo,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                        decoration: BoxDecoration(
+                          color: AppColors.accent,
+                          borderRadius: BorderRadius.circular(24),
                         ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'be the first to upload!'.toLowerCase(),
-                        style: TextStyle(
-                          color: AppColors.textSecondary,
-                          fontSize: 14,
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-                      TextButton(
-                        onPressed: _pickVideo,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                          decoration: BoxDecoration(
-                            color: AppColors.accent,
-                            borderRadius: BorderRadius.circular(24),
+                        child: Text(
+                          'upload video'.toLowerCase(),
+                          style: TextStyle(
+                            color: AppColors.background,
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
                           ),
-                          child: Text(
-                            'upload video'.toLowerCase(),
-                            style: TextStyle(
-                              color: AppColors.background,
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }
+
+            return Stack(
+              children: [
+                GestureDetector(
+                  onVerticalDragEnd: (details) {
+                    if (details.primaryVelocity! < 0) {
+                      // Swipe up - go to next video
+                      if (_currentVideoIndex < videos.length) {
+                        _pageController.animateToPage(
+                          _currentVideoIndex + 1,
+                          duration: const Duration(milliseconds: 300),
+                          curve: Curves.easeOut,
+                        );
+                      }
+                    } else if (details.primaryVelocity! > 0) {
+                      // Swipe down - go to previous video
+                      if (_currentVideoIndex > 0) {
+                        _pageController.animateToPage(
+                          _currentVideoIndex - 1,
+                          duration: const Duration(milliseconds: 300),
+                          curve: Curves.easeOut,
+                        );
+                      }
+                    }
+                  },
+                  child: PageView.builder(
+                    controller: _pageController,
+                    scrollDirection: Axis.vertical,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: videos.length + 1,
+                    onPageChanged: (index) {
+                      setState(() {
+                        _currentVideoIndex = index;
+                        _showComments = false;
+                      });
+                    },
+                    itemBuilder: (context, index) {
+                      if (index == videos.length) {
+                        return Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.check_circle_outline,
+                                size: 64,
+                                color: AppColors.accent,
+                              ),
+                              const SizedBox(height: 16),
+                              Text(
+                                'you\'re all caught up!'.toLowerCase(),
+                                style: TextStyle(
+                                  color: AppColors.textPrimary,
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                'check back later for more videos'.toLowerCase(),
+                                style: TextStyle(
+                                  color: AppColors.textSecondary,
+                                  fontSize: 14,
+                                ),
+                              ),
+                              const SizedBox(height: 24),
+                              TextButton(
+                                onPressed: () => _pageController.animateToPage(
+                                  0,
+                                  duration: const Duration(milliseconds: 500),
+                                  curve: Curves.easeInOut,
+                                ),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.accent,
+                                    borderRadius: BorderRadius.circular(24),
+                                  ),
+                                  child: Text(
+                                    'back to top'.toLowerCase(),
+                                    style: TextStyle(
+                                      color: AppColors.background,
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      }
+
+                      final video = videos[index];
+                      return Stack(
+                        children: [
+                          // Video viewer
+                          VideoViewer(
+                            video: video,
+                            autoPlay: index == _currentVideoIndex,
+                            showControls: true,
+                            isInFeed: true,
+                          ),
+
+                          // Video info overlay at bottom
+                          Positioned(
+                            left: 16,
+                            right: 96, // Make room for controls on right
+                            bottom: 16,
+                            child: Container(
+                              padding: const EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                color: AppColors.background.withOpacity(0.5),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    video.title.toLowerCase(),
+                                    style: TextStyle(
+                                      fontFamily: 'Menlo',
+                                      color: AppColors.textPrimary,
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  // View count
+                                  Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(
+                                        Icons.remove_red_eye_outlined,
+                                        size: 16,
+                                        color: AppColors.textSecondary,
+                                      ),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        '${video.viewCount} views'.toLowerCase(),
+                                        style: TextStyle(
+                                          color: AppColors.textSecondary,
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  if (video.description.isNotEmpty) ...[
+                                    const SizedBox(height: 8),
+                                    Text(
+                                      video.description.toLowerCase(),
+                                      style: TextStyle(
+                                        color: AppColors.textPrimary,
+                                        fontSize: 14,
+                                      ),
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ],
+                                  const SizedBox(height: 12),
+                                  Wrap(
+                                    spacing: 8,
+                                    children: video.tags.map((tag) {
+                                      return Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 12,
+                                          vertical: 6,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: AppColors.accent.withOpacity(0.1),
+                                          borderRadius: BorderRadius.circular(16),
+                                          border: Border.all(
+                                            color: AppColors.accent.withOpacity(0.2),
+                                          ),
+                                        ),
+                                        child: Text(
+                                          '#${tag.toLowerCase()}',
+                                          style: TextStyle(
+                                            fontFamily: 'Menlo',
+                                            color: AppColors.textPrimary,
+                                            fontWeight: FontWeight.w500,
+                                            fontSize: 11,
+                                          ),
+                                        ),
+                                      );
+                                    }).toList(),
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              }
 
-              return Stack(
-                children: [
-                  GestureDetector(
-                    onVerticalDragEnd: (details) {
-                      if (details.primaryVelocity! < 0) {
-                        // Swipe up - go to next video
-                        if (_currentVideoIndex < videos.length) {
-                          _pageController.animateToPage(
-                            _currentVideoIndex + 1,
-                            duration: const Duration(milliseconds: 300),
-                            curve: Curves.easeOut,
-                          );
-                        }
-                      } else if (details.primaryVelocity! > 0) {
-                        // Swipe down - go to previous video
-                        if (_currentVideoIndex > 0) {
-                          _pageController.animateToPage(
-                            _currentVideoIndex - 1,
-                            duration: const Duration(milliseconds: 300),
-                            curve: Curves.easeOut,
-                          );
-                        }
-                      }
-                    },
-                    child: PageView.builder(
-                      controller: _pageController,
-                      scrollDirection: Axis.vertical,
-                      physics: const NeverScrollableScrollPhysics(),
-                      itemCount: videos.length + 1,
-                      onPageChanged: (index) {
-                        setState(() {
-                          _currentVideoIndex = index;
-                          _showComments = false;
-                        });
-                      },
-                      itemBuilder: (context, index) {
-                        if (index == videos.length) {
-                          return Center(
+                          // Right side controls with profile
+                          Positioned(
+                            right: 16,
+                            bottom: 16,
                             child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
+                              mainAxisSize: MainAxisSize.min,
                               children: [
-                                Icon(
-                                  Icons.check_circle_outline,
-                                  size: 64,
-                                  color: AppColors.accent,
-                                ),
-                                const SizedBox(height: 16),
-                                Text(
-                                  'you\'re all caught up!'.toLowerCase(),
-                                  style: TextStyle(
-                                    color: AppColors.textPrimary,
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.bold,
+                                // Uploader profile
+                                GestureDetector(
+                                  onTap: () {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) => ProfileScreen(userId: video.creatorId),
+                                      ),
+                                    );
+                                  },
+                                  child: Column(
+                                    children: [
+                                      StreamBuilder<DocumentSnapshot>(
+                                        stream: FirebaseFirestore.instance
+                                            .collection('users')
+                                            .doc(video.creatorId)
+                                            .snapshots(),
+                                        builder: (context, snapshot) {
+                                          String? photoUrl;
+                                          if (snapshot.hasData && snapshot.data!.exists) {
+                                            final userData = snapshot.data!.data() as Map<String, dynamic>;
+                                            photoUrl = userData['photoUrl'] as String?;
+                                          }
+                                          
+                                          return CircleAvatar(
+                                            radius: 20,
+                                            backgroundColor: AppColors.accent,
+                                            backgroundImage: photoUrl != null ? NetworkImage(photoUrl) : null,
+                                            child: photoUrl == null ? Text(
+                                              video.creatorUsername[0].toUpperCase(),
+                                              style: TextStyle(
+                                                color: AppColors.background,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ) : null,
+                                          );
+                                        },
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        '@${video.creatorUsername}'.toLowerCase(),
+                                        style: TextStyle(
+                                          color: AppColors.textPrimary,
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
                                 const SizedBox(height: 8),
-                                Text(
-                                  'check back later for more videos'.toLowerCase(),
-                                  style: TextStyle(
-                                    color: AppColors.textSecondary,
-                                    fontSize: 14,
-                                  ),
-                                ),
-                                const SizedBox(height: 24),
-                                TextButton(
-                                  onPressed: () => _pageController.animateToPage(
-                                    0,
-                                    duration: const Duration(milliseconds: 500),
-                                    curve: Curves.easeInOut,
-                                  ),
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                                    decoration: BoxDecoration(
-                                      color: AppColors.accent,
-                                      borderRadius: BorderRadius.circular(24),
-                                    ),
-                                    child: Text(
-                                      'back to top'.toLowerCase(),
-                                      style: TextStyle(
-                                        color: AppColors.background,
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ),
-                                ),
+                                _buildVideoActions(video),
                               ],
                             ),
-                          );
-                        }
+                          ),
 
-                        final video = videos[index];
-                        return Stack(
-                          children: [
-                            // Video viewer
-                            VideoViewer(
-                              video: video,
-                              autoPlay: index == _currentVideoIndex,
-                              showControls: true,
-                              isInFeed: true,
-                            ),
-
-                            // Video info overlay at bottom
+                          // Comments overlay
+                          if (_showComments)
                             Positioned(
-                              left: 16,
-                              right: 96, // Make room for controls on right
-                              bottom: 16,
+                              right: 0,
+                              top: 0,
+                              bottom: 0,
+                              width: MediaQuery.of(context).size.width * 0.6,
                               child: Container(
-                                padding: const EdgeInsets.all(16),
                                 decoration: BoxDecoration(
-                                  color: AppColors.background.withOpacity(0.5),
-                                  borderRadius: BorderRadius.circular(12),
+                                  color: AppColors.background,
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withOpacity(0.2),
+                                      blurRadius: 8,
+                                      offset: const Offset(-2, 0),
+                                    ),
+                                  ],
                                 ),
                                 child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Text(
-                                      video.title.toLowerCase(),
-                                      style: TextStyle(
-                                        fontFamily: 'Menlo',
-                                        color: AppColors.textPrimary,
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.bold,
+                                    // Comments header
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                      decoration: BoxDecoration(
+                                        border: Border(
+                                          bottom: BorderSide(
+                                            color: AppColors.divider,
+                                            width: 1,
+                                          ),
+                                        ),
                                       ),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    // View count
-                                    Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Icon(
-                                          Icons.remove_red_eye_outlined,
-                                          size: 16,
-                                          color: AppColors.textSecondary,
-                                        ),
-                                        const SizedBox(width: 4),
-                                        Text(
-                                          '${video.viewCount} views'.toLowerCase(),
-                                          style: TextStyle(
-                                            color: AppColors.textSecondary,
-                                            fontSize: 12,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                    if (video.description.isNotEmpty) ...[
-                                      const SizedBox(height: 8),
-                                      Text(
-                                        video.description.toLowerCase(),
-                                        style: TextStyle(
-                                          color: AppColors.textPrimary,
-                                          fontSize: 14,
-                                        ),
-                                        maxLines: 2,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ],
-                                    const SizedBox(height: 12),
-                                    Wrap(
-                                      spacing: 8,
-                                      children: video.tags.map((tag) {
-                                        return Container(
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 12,
-                                            vertical: 6,
-                                          ),
-                                          decoration: BoxDecoration(
-                                            color: AppColors.accent.withOpacity(0.1),
-                                            borderRadius: BorderRadius.circular(16),
-                                            border: Border.all(
-                                              color: AppColors.accent.withOpacity(0.2),
-                                            ),
-                                          ),
-                                          child: Text(
-                                            '#${tag.toLowerCase()}',
+                                      child: Row(
+                                        children: [
+                                          Text(
+                                            'comments'.toLowerCase(),
                                             style: TextStyle(
-                                              fontFamily: 'Menlo',
                                               color: AppColors.textPrimary,
-                                              fontWeight: FontWeight.w500,
-                                              fontSize: 11,
+                                              fontSize: 16,
+                                              fontWeight: FontWeight.bold,
                                             ),
                                           ),
-                                        );
-                                      }).toList(),
+                                          const SizedBox(width: 8),
+                                          StreamBuilder<DocumentSnapshot>(
+                                            stream: _videoService.firestore
+                                                .collection('videos')
+                                                .doc(video.id)
+                                                .snapshots(),
+                                            builder: (context, snapshot) {
+                                              final commentCount = snapshot.hasData
+                                                  ? (snapshot.data!.data() as Map<String, dynamic>)['commentCount'] ?? 0
+                                                  : video.commentCount;
+                                              return Text(
+                                                '($commentCount)'.toLowerCase(),
+                                                style: TextStyle(
+                                                  color: AppColors.textSecondary,
+                                                  fontSize: 16,
+                                                ),
+                                              );
+                                            },
+                                          ),
+                                          const Spacer(),
+                                          IconButton(
+                                            icon: Icon(
+                                              Icons.close,
+                                              color: AppColors.textPrimary,
+                                            ),
+                                            onPressed: _toggleComments,
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    // Comments list
+                                    Expanded(
+                                      child: CommentList(
+                                        videoId: video.id,
+                                        showInput: true,
+                                      ),
                                     ),
                                   ],
                                 ),
                               ),
                             ),
-
-                            // Right side controls with profile
-                            Positioned(
-                              right: 16,
-                              bottom: 16,
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  // Uploader profile
-                                  GestureDetector(
-                                    onTap: () {
-                                      Navigator.push(
-                                        context,
-                                        MaterialPageRoute(
-                                          builder: (context) => ProfileScreen(userId: video.creatorId),
-                                        ),
-                                      );
-                                    },
-                                    child: Column(
-                                      children: [
-                                        StreamBuilder<DocumentSnapshot>(
-                                          stream: FirebaseFirestore.instance
-                                              .collection('users')
-                                              .doc(video.creatorId)
-                                              .snapshots(),
-                                          builder: (context, snapshot) {
-                                            String? photoUrl;
-                                            if (snapshot.hasData && snapshot.data!.exists) {
-                                              final userData = snapshot.data!.data() as Map<String, dynamic>;
-                                              photoUrl = userData['photoUrl'] as String?;
-                                            }
-                                            
-                                            return CircleAvatar(
-                                              radius: 20,
-                                              backgroundColor: AppColors.accent,
-                                              backgroundImage: photoUrl != null ? NetworkImage(photoUrl) : null,
-                                              child: photoUrl == null ? Text(
-                                                video.creatorUsername[0].toUpperCase(),
-                                                style: TextStyle(
-                                                  color: AppColors.background,
-                                                  fontWeight: FontWeight.bold,
-                                                ),
-                                              ) : null,
-                                            );
-                                          },
-                                        ),
-                                        const SizedBox(height: 4),
-                                        Text(
-                                          '@${video.creatorUsername}'.toLowerCase(),
-                                          style: TextStyle(
-                                            color: AppColors.textPrimary,
-                                            fontSize: 12,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  const SizedBox(height: 8),
-                                  _buildVideoActions(video),
-                                ],
-                              ),
-                            ),
-
-                            // Comments overlay
-                            if (_showComments)
-                              Positioned(
-                                right: 0,
-                                top: 0,
-                                bottom: 0,
-                                width: MediaQuery.of(context).size.width * 0.6,
-                                child: Container(
-                                  decoration: BoxDecoration(
-                                    color: AppColors.background,
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: Colors.black.withOpacity(0.2),
-                                        blurRadius: 8,
-                                        offset: const Offset(-2, 0),
-                                      ),
-                                    ],
-                                  ),
-                                  child: Column(
-                                    children: [
-                                      // Comments header
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                                        decoration: BoxDecoration(
-                                          border: Border(
-                                            bottom: BorderSide(
-                                              color: AppColors.divider,
-                                              width: 1,
-                                            ),
-                                          ),
-                                        ),
-                                        child: Row(
-                                          children: [
-                                            Text(
-                                              'comments'.toLowerCase(),
-                                              style: TextStyle(
-                                                color: AppColors.textPrimary,
-                                                fontSize: 16,
-                                                fontWeight: FontWeight.bold,
-                                              ),
-                                            ),
-                                            const SizedBox(width: 8),
-                                            StreamBuilder<DocumentSnapshot>(
-                                              stream: _videoService.firestore
-                                                  .collection('videos')
-                                                  .doc(video.id)
-                                                  .snapshots(),
-                                              builder: (context, snapshot) {
-                                                final commentCount = snapshot.hasData
-                                                    ? (snapshot.data!.data() as Map<String, dynamic>)['commentCount'] ?? 0
-                                                    : video.commentCount;
-                                                return Text(
-                                                  '($commentCount)'.toLowerCase(),
-                                                  style: TextStyle(
-                                                    color: AppColors.textSecondary,
-                                                    fontSize: 16,
-                                                  ),
-                                                );
-                                              },
-                                            ),
-                                            const Spacer(),
-                                            IconButton(
-                                              icon: Icon(
-                                                Icons.close,
-                                                color: AppColors.textPrimary,
-                                              ),
-                                              onPressed: _toggleComments,
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                      // Comments list
-                                      Expanded(
-                                        child: CommentList(
-                                          videoId: video.id,
-                                          showInput: true,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                          ],
-                        );
-                      },
-                    ),
+                        ],
+                      );
+                    },
                   ),
-                ],
-              );
-            },
-          ),
+                ),
+              ],
+            );
+          },
         ),
       ),
     );

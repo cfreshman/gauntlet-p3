@@ -98,11 +98,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
     // Check if we're navigating from another screen (not main nav)
     final bool showBackButton = !_isCurrentUser || Navigator.of(context).canPop();
 
-    return SafeArea(
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.background,
+      ),
       child: SidebarLayout(
         showBackButton: showBackButton,
         child: Scaffold(
-          backgroundColor: AppColors.background,
           body: Row(
             children: [
               // Left side - User info

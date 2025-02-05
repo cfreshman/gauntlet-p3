@@ -140,57 +140,66 @@ class _AuthScreenState extends State<AuthScreen> with SingleTickerProviderStateM
       color: AppColors.background,
       child: Scaffold(
         backgroundColor: Colors.transparent,
-        body: SafeArea(
-          child: Container(
-            color: AppColors.background,
-            child: Center(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 24),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    // Left side - Logo
-                    SizedBox(
-                      width: 200,
-                      child: FadeTransition(
-                        opacity: _fadeAnimation,
-                        child: SlideTransition(
-                          position: _slideAnimation,
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                Icons.video_library,
-                                size: 48,
-                                color: AppColors.accent,
+        body: Stack(
+          children: [
+            // Background that extends edge to edge
+            Container(color: AppColors.background),
+            
+            // Content that respects safe area
+            SafeArea(
+              bottom: false,
+              child: Container(
+                color: AppColors.background,
+                child: Center(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.symmetric(horizontal: 24),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        // Left side - Logo
+                        SizedBox(
+                          width: 200,
+                          child: FadeTransition(
+                            opacity: _fadeAnimation,
+                            child: SlideTransition(
+                              position: _slideAnimation,
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    Icons.video_library,
+                                    size: 48,
+                                    color: AppColors.accent,
+                                  ),
+                                  const SizedBox(height: 16),
+                                  Text(
+                                    'TikBlok',
+                                    style: theme.textTheme.displayMedium?.copyWith(
+                                      fontWeight: FontWeight.bold,
+                                      color: AppColors.accent,
+                                    ),
+                                  ),
+                                ],
                               ),
-                              const SizedBox(height: 16),
-                              Text(
-                                'TikBlok',
-                                style: theme.textTheme.displayMedium?.copyWith(
-                                  fontWeight: FontWeight.bold,
-                                  color: AppColors.accent,
-                                ),
-                              ),
-                            ],
+                            ),
                           ),
                         ),
-                      ),
+                        const SizedBox(width: 32),
+                        // Right side - Form
+                        Flexible(
+                          child: Container(
+                            constraints: const BoxConstraints(maxWidth: 400),
+                            child: _buildFormFields(context),
+                          ),
+                        ),
+                      ],
                     ),
-                    const SizedBox(width: 32),
-                    // Right side - Form
-                    Flexible(
-                      child: Container(
-                        constraints: const BoxConstraints(maxWidth: 400),
-                        child: _buildFormFields(context),
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
               ),
             ),
-          ),
+          ],
         ),
       ),
     );

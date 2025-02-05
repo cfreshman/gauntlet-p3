@@ -142,12 +142,12 @@ class _VideoViewerState extends State<VideoViewer> {
           ),
         ),
 
-        // Progress bar at absolute bottom
+        // Progress bar at top
         if (widget.showControls)
           Positioned(
             left: 0,
             right: 0,
-            bottom: 0,
+            top: widget.isInFeed ? 0 : MediaQuery.of(context).padding.top,
             child: Material(
               color: Colors.transparent,
               child: InkWell(
@@ -161,7 +161,7 @@ class _VideoViewerState extends State<VideoViewer> {
                 },
                 child: Container(
                   height: 20,
-                  padding: const EdgeInsets.only(top: 16),
+                  padding: const EdgeInsets.only(bottom: 16),
                   child: VideoProgressIndicator(
                     _controller,
                     allowScrubbing: true,

@@ -167,8 +167,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           ),
         ],
       ),
-      body: SafeArea(
-        child: _isLoading
+      body: _isLoading
             ? const Center(child: LoadingIndicator())
             : SingleChildScrollView(
                 padding: const EdgeInsets.all(24),
@@ -250,7 +249,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   ],
                 ),
               ),
-      ),
     );
   }
 } 

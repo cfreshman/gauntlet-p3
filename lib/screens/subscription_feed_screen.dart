@@ -89,6 +89,7 @@ class _SubscriptionFeedScreenState extends State<SubscriptionFeedScreen> {
         return VideoFeedScreen(
           videos: videos,
           showBackSidebar: false,
+          initialIndex: 0,
         );
       },
     );

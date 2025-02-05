@@ -25,6 +25,7 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
   final _playlistService = PlaylistService();
   final _nameController = TextEditingController();
   bool _isEditing = false;
+  bool _isLoading = true;
 
   @override
   void dispose() {
@@ -120,9 +121,11 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
-      body: SafeArea(
-        child: SidebarLayout(
-          showBackButton: true,
+      body: _isLoading
+            ? const Center(child: LoadingIndicator())
+            : SidebarLayout(
+                showBackButton: true,
+                child: SingleChildScrollView(
           child: StreamBuilder<List<Playlist>>(
             stream: _playlistService.getUserPlaylists(),
             builder: (context, snapshot) {

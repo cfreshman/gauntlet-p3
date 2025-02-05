@@ -4,6 +4,7 @@ import '../theme/colors.dart';
 import '../extensions/string_extensions.dart';
 import '../screens/video_screen.dart';
 import '../screens/video_feed_screen.dart';
+import '../screens/standalone_video_screen.dart';
 
 class VideoPreview extends StatelessWidget {
   final Video video;
@@ -31,7 +32,7 @@ class VideoPreview extends StatelessWidget {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => VideoFeedScreen(
+        builder: (context) => StandaloneVideoScreen(
           videos: videos ?? [video],
           initialIndex: currentIndex ?? 0,
         ),
