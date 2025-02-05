@@ -6,6 +6,7 @@ import '../extensions/string_extensions.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:timeago/timeago.dart' as timeago;
 import '../screens/profile_screen.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class CommentList extends StatefulWidget {
   final String videoId;
@@ -97,6 +98,12 @@ class _CommentListState extends State<CommentList> {
     }
   }
 
+  void removeComment(Comment comment) {
+    setState(() {
+      _currentComments.removeWhere((c) => c.id == comment.id);
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -120,7 +127,7 @@ class _CommentListState extends State<CommentList> {
                   ),
                 )
               : ListView.builder(
-                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  padding: const EdgeInsets.symmetric(vertical: 4),
                   itemCount: _currentComments.length,
                   itemBuilder: (context, index) {
                     final comment = _currentComments[index];
@@ -136,7 +143,7 @@ class _CommentListState extends State<CommentList> {
         if (widget.showInput) ...[
           const Divider(height: 1),
           Padding(
-            padding: const EdgeInsets.all(8.0),
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             child: Row(
               children: [
                 Expanded(
@@ -200,6 +207,7 @@ class _CommentTile extends StatefulWidget {
 class _CommentTileState extends State<_CommentTile> {
   final _videoService = VideoService();
   final _firestore = FirebaseFirestore.instance;
+  final _auth = FirebaseAuth.instance;
   bool _hasLiked = false;
   int _likeCount = 0;
   bool _isLoading = false;
@@ -211,14 +219,30 @@ class _CommentTileState extends State<_CommentTile> {
     super.initState();
     _likeCount = widget.comment.likeCount;
     _loadUserInfo();
-    // Check initial like state
-    _videoService.hasLikedComment(widget.videoId, widget.comment.id)
-        .first
-        .then((liked) {
-          if (mounted) {
-            setState(() => _hasLiked = liked);
-          }
-        });
+    _checkLikeState();
+  }
+
+  @override
+  void didUpdateWidget(_CommentTile oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.comment.userId != widget.comment.userId) {
+      // Reset user info and reload if the comment changed
+      setState(() {
+        _username = '';
+        _userPhotoUrl = null;
+      });
+      _loadUserInfo();
+    }
+    if (oldWidget.comment.id != widget.comment.id) {
+      _checkLikeState();
+    }
+  }
+
+  Future<void> _checkLikeState() async {
+    final liked = await _videoService.hasLikedComment(widget.videoId, widget.comment.id).first;
+    if (mounted) {
+      setState(() => _hasLiked = liked);
+    }
   }
 
   Future<void> _loadUserInfo() async {
@@ -271,40 +295,61 @@ class _CommentTileState extends State<_CommentTile> {
     }
   }
 
+  Future<void> _deleteComment() async {
+    try {
+      await _videoService.deleteComment(widget.videoId, widget.comment.id);
+      if (mounted) {
+        // Remove comment from parent list
+        final commentList = context.findAncestorStateOfType<_CommentListState>();
+        commentList?.removeComment(widget.comment);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              e.toString().replaceAll('Exception: ', ''),
+              style: TextStyle(color: AppColors.background),
+            ),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final isCommentOwner = _auth.currentUser?.uid == widget.comment.userId;
+
     return ListTile(
       leading: GestureDetector(
-        onTap: () => Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => ProfileScreen(userId: widget.comment.userId),
-          ),
-        ),
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => ProfileScreen(userId: widget.comment.userId),
+            ),
+          );
+        },
         child: CircleAvatar(
           backgroundColor: AppColors.accent,
           backgroundImage: _userPhotoUrl != null ? NetworkImage(_userPhotoUrl!) : null,
           child: _userPhotoUrl == null
-              ? Icon(Icons.person, color: AppColors.background)
-              : null,
+            ? Text(
+                _username.isNotEmpty ? _username[0].toUpperCase() : '?',
+                style: TextStyle(color: AppColors.background),
+              )
+            : null,
         ),
       ),
       title: Row(
         children: [
-          GestureDetector(
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => ProfileScreen(userId: widget.comment.userId),
-              ),
-            ),
-            child: Text(
-              _username.toLowerCase(),
-              style: TextStyle(
-                color: AppColors.textPrimary,
-                fontWeight: FontWeight.bold,
-                fontSize: 14,
-              ),
+          Text(
+            _username.toLowerCase(),
+            style: TextStyle(
+              color: AppColors.textPrimary,
+              fontWeight: FontWeight.bold,
             ),
           ),
           const SizedBox(width: 8),
@@ -321,37 +366,78 @@ class _CommentTileState extends State<_CommentTile> {
         widget.comment.text.toLowerCase(),
         style: TextStyle(
           color: AppColors.textPrimary,
-          fontSize: 14,
         ),
       ),
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          _isLoading
+          // Like button
+          IconButton(
+            onPressed: _toggleLike,
+            icon: _isLoading
               ? SizedBox(
-                  width: 16,
-                  height: 16,
+                  width: 20,
+                  height: 20,
                   child: CircularProgressIndicator(
-                    strokeWidth: 2,
                     color: AppColors.accent,
+                    strokeWidth: 2,
                   ),
                 )
-              : GestureDetector(
-                  onTap: _toggleLike,
-                  child: Icon(
-                    _hasLiked ? Icons.favorite : Icons.favorite_border,
-                    size: 16,
-                    color: _hasLiked ? AppColors.accent : AppColors.textSecondary,
-                  ),
+              : Icon(
+                  _hasLiked ? Icons.favorite : Icons.favorite_border,
+                  color: _hasLiked ? AppColors.accent : AppColors.textSecondary,
+                  size: 20,
                 ),
-          if (_likeCount > 0) ...[
-            const SizedBox(width: 4),
-            Text(
-              _likeCount.toString(),
-              style: TextStyle(
-                color: _hasLiked ? AppColors.accent : AppColors.textSecondary,
-                fontSize: 12,
+          ),
+          Text(
+            '$_likeCount',
+            style: TextStyle(
+              color: _hasLiked ? AppColors.accent : AppColors.textSecondary,
+            ),
+          ),
+          if (isCommentOwner) ...[
+            const SizedBox(width: 8),
+            IconButton(
+              icon: Icon(
+                Icons.delete_outline,
+                color: AppColors.textSecondary,
+                size: 20,
               ),
+              onPressed: () {
+                showDialog(
+                  context: context,
+                  builder: (context) => AlertDialog(
+                    backgroundColor: AppColors.background,
+                    title: Text(
+                      'delete comment?'.toLowerCase(),
+                      style: TextStyle(color: AppColors.textPrimary),
+                    ),
+                    content: Text(
+                      'this action cannot be undone.'.toLowerCase(),
+                      style: TextStyle(color: AppColors.textSecondary),
+                    ),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(context),
+                        child: Text(
+                          'cancel'.toLowerCase(),
+                          style: TextStyle(color: AppColors.textSecondary),
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: () {
+                          Navigator.pop(context);
+                          _deleteComment();
+                        },
+                        child: Text(
+                          'delete'.toLowerCase(),
+                          style: TextStyle(color: AppColors.error),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
             ),
           ],
         ],

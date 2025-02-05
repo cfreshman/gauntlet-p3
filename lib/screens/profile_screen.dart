@@ -95,143 +95,142 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final content = Scaffold(
-      backgroundColor: AppColors.background,
-      body: SafeArea(
-        child: Row(
-          children: [
-            // Left side - User info
-            Container(
-              width: 300,
-              padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                border: Border(
-                  right: BorderSide(
-                    color: AppColors.background.withOpacity(0.2),
-                    width: 1,
+    // Check if we're navigating from another screen (not main nav)
+    final bool showBackButton = !_isCurrentUser || Navigator.of(context).canPop();
+
+    return SafeArea(
+      child: SidebarLayout(
+        showBackButton: showBackButton,
+        child: Scaffold(
+          backgroundColor: AppColors.background,
+          body: Row(
+            children: [
+              // Left side - User info
+              Container(
+                width: 300,
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  border: Border(
+                    right: BorderSide(
+                      color: AppColors.background.withOpacity(0.2),
+                      width: 1,
+                    ),
                   ),
                 ),
-              ),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  // Avatar
-                  CircleAvatar(
-                    radius: 50,
-                    backgroundColor: AppColors.accent,
-                    backgroundImage: _photoUrl != null ? NetworkImage(_photoUrl!) : null,
-                    child: _photoUrl == null ? Icon(
-                      Icons.person,
-                      size: 50,
-                      color: AppColors.textPrimary,
-                    ) : null,
-                  ),
-                  const SizedBox(height: 16),
-                  // Username
-                  Text(
-                    '@$_username'.lowercase,
-                    style: const TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.textPrimary,
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    // Avatar
+                    CircleAvatar(
+                      radius: 50,
+                      backgroundColor: AppColors.accent,
+                      backgroundImage: _photoUrl != null ? NetworkImage(_photoUrl!) : null,
+                      child: _photoUrl == null ? Icon(
+                        Icons.person,
+                        size: 50,
+                        color: AppColors.textPrimary,
+                      ) : null,
                     ),
-                  ),
-                  const SizedBox(height: 8),
-                  // Bio
-                  Text(
-                    _bio.lowercase,
-                    style: TextStyle(
-                      color: AppColors.textPrimary,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  // Stats
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: [
-                      _buildStatColumn('Videos', _userVideos.length.toString()),
-                      _buildStatColumn('Views', _userVideos.fold<int>(0, (sum, video) => sum + video.viewCount).toString()),
-                      _buildStatColumn('Likes', _userVideos.fold<int>(0, (sum, video) => sum + video.likeCount).toString()),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  // Edit Profile Button - only show for current user
-                  if (_isCurrentUser)
-                    FilledButton.tonal(
-                      onPressed: () async {
-                        await Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const EditProfileScreen(),
-                          ),
-                        );
-                        _refreshProfile();
-                      },
-                      child: Text('edit profile'.lowercase),
-                    ),
-                ],
-              ),
-            ),
-
-            // Right side - Content
-            Expanded(
-              child: Column(
-                children: [
-                  // Toggle bar
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      border: Border(
-                        bottom: BorderSide(
-                          color: AppColors.background.withOpacity(0.2),
-                          width: 1,
-                        ),
+                    const SizedBox(height: 16),
+                    // Username
+                    Text(
+                      '@$_username'.lowercase,
+                      style: const TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.textPrimary,
                       ),
                     ),
-                    child: Row(
+                    const SizedBox(height: 8),
+                    // Bio
+                    Text(
+                      _bio.lowercase,
+                      style: TextStyle(
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    // Stats
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                       children: [
-                        if (_userVideos.isNotEmpty) ...[
-                          _buildToggleButton(
-                            title: 'Videos'.lowercase,
-                            isSelected: _showVideos,
-                            onPressed: () => setState(() => _showVideos = true),
-                          ),
-                          const SizedBox(width: 16),
-                        ],
-                        _buildToggleButton(
-                          title: 'Playlists'.lowercase,
-                          isSelected: !_showVideos,
-                          onPressed: () => setState(() => _showVideos = false),
-                        ),
+                        _buildStatColumn('Videos', _userVideos.length.toString()),
+                        _buildStatColumn('Views', _userVideos.fold<int>(0, (sum, video) => sum + video.viewCount).toString()),
+                        _buildStatColumn('Likes', _userVideos.fold<int>(0, (sum, video) => sum + video.likeCount).toString()),
                       ],
                     ),
-                  ),
-                  // Content list
-                  Expanded(
-                    child: _isLoading
-                        ? Center(
-                            child: CircularProgressIndicator(
-                              color: AppColors.accent,
+                    const SizedBox(height: 16),
+                    // Edit Profile Button - only show for current user
+                    if (_isCurrentUser)
+                      FilledButton.tonal(
+                        onPressed: () async {
+                          await Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const EditProfileScreen(),
                             ),
-                          )
-                        : _showVideos
-                            ? _buildVideosList()
-                            : _buildPlaylistsList(),
-                  ),
-                ],
+                          );
+                          _refreshProfile();
+                        },
+                        child: Text('edit profile'.lowercase),
+                      ),
+                  ],
+                ),
               ),
-            ),
-          ],
+
+              // Right side - Content
+              Expanded(
+                child: Column(
+                  children: [
+                    // Toggle bar
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        border: Border(
+                          bottom: BorderSide(
+                            color: AppColors.background.withOpacity(0.2),
+                            width: 1,
+                          ),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          if (_userVideos.isNotEmpty) ...[
+                            _buildToggleButton(
+                              title: 'Videos'.lowercase,
+                              isSelected: _showVideos,
+                              onPressed: () => setState(() => _showVideos = true),
+                            ),
+                            const SizedBox(width: 16),
+                          ],
+                          _buildToggleButton(
+                            title: 'Playlists'.lowercase,
+                            isSelected: !_showVideos,
+                            onPressed: () => setState(() => _showVideos = false),
+                          ),
+                        ],
+                      ),
+                    ),
+                    // Content list
+                    Expanded(
+                      child: _isLoading
+                          ? Center(
+                              child: CircularProgressIndicator(
+                                color: AppColors.accent,
+                              ),
+                            )
+                          : _showVideos
+                              ? _buildVideosList()
+                              : _buildPlaylistsList(),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
-
-    return !_isCurrentUser
-        ? SidebarLayout(
-            showBackButton: true,
-            child: content,
-          )
-        : content;
   }
 
   Widget _buildToggleButton({

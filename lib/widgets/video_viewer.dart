@@ -4,6 +4,7 @@ import '../models/video.dart';
 import '../services/video_service.dart';
 import '../theme/colors.dart';
 import 'add_to_playlist_dialog.dart';
+import '../screens/profile_screen.dart';
 
 class VideoViewer extends StatefulWidget {
   final Video video;
@@ -137,98 +138,6 @@ class _VideoViewerState extends State<VideoViewer> {
                   child: VideoPlayer(_controller),
                 ),
               ),
-              if (widget.showControls) ...[
-                // Video overlay controls
-                AnimatedOpacity(
-                  opacity: _showOverlay ? 1.0 : 0.0,
-                  duration: const Duration(milliseconds: 200),
-                  child: Container(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [
-                          Colors.black.withOpacity(0.7),
-                          Colors.transparent,
-                          Colors.transparent,
-                          Colors.black.withOpacity(0.7),
-                        ],
-                      ),
-                    ),
-                    child: Stack(
-                      children: [
-                        // Right side controls
-                        Positioned(
-                          right: 8,
-                          bottom: 80,
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              // Like button
-                              StreamBuilder<bool>(
-                                stream: _videoService.hasLiked(widget.video.id),
-                                builder: (context, snapshot) {
-                                  final hasLiked = snapshot.data ?? false;
-                                  return _buildActionButton(
-                                    icon: hasLiked ? Icons.favorite : Icons.favorite_border,
-                                    label: widget.video.likeCount.toString(),
-                                    color: hasLiked ? AppColors.accent : Colors.white,
-                                    onTap: () => _videoService.toggleLike(widget.video.id),
-                                  );
-                                },
-                              ),
-                              const SizedBox(height: 16),
-                              // Comment button
-                              StreamBuilder<bool>(
-                                stream: Stream.value(true), // Always build
-                                builder: (context, _) {
-                                  return _buildActionButton(
-                                    icon: Icons.comment_outlined,
-                                    label: widget.video.commentCount.toString(),
-                                    color: Colors.white,
-                                    onTap: () {
-                                      // Keep overlay visible when opening comments
-                                      setState(() {
-                                        _showOverlay = true;
-                                      });
-                                      widget.onCommentTap?.call();
-                                    },
-                                  );
-                                },
-                              ),
-                              const SizedBox(height: 16),
-                              // Add to playlist button
-                              if (!widget.isInFeed)
-                                StreamBuilder<bool>(
-                                  stream: Stream.value(true), // Always build
-                                  builder: (context, _) {
-                                    return _buildActionButton(
-                                      icon: Icons.bookmark_outline,
-                                      label: 'Playlist',
-                                      color: Colors.white,
-                                      onTap: () {
-                                        // Keep overlay visible when adding to playlist
-                                        setState(() {
-                                          _showOverlay = true;
-                                        });
-                                        showDialog(
-                                          context: context,
-                                          builder: (context) => AddToPlaylistDialog(
-                                            videoId: widget.video.id,
-                                          ),
-                                        );
-                                      },
-                                    );
-                                  },
-                                ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
             ],
           ),
         ),
@@ -268,42 +177,6 @@ class _VideoViewerState extends State<VideoViewer> {
             ),
           ),
       ],
-    );
-  }
-
-  Widget _buildActionButton({
-    required IconData icon,
-    required String label,
-    Color color = Colors.white,
-    VoidCallback? onTap,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Column(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: AppColors.background.withOpacity(0.5),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              icon,
-              color: color,
-              size: 24,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            label.toLowerCase(),
-            style: TextStyle(
-              color: color,
-              fontSize: 12,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ],
-      ),
     );
   }
 
