@@ -8,7 +8,12 @@ import '../services/video_service.dart';
 import '../widgets/video_preview.dart';
 
 class SearchScreen extends StatefulWidget {
-  const SearchScreen({super.key});
+  final String? initialTag;
+  
+  const SearchScreen({
+    super.key,
+    this.initialTag,
+  });
 
   @override
   State<SearchScreen> createState() => _SearchScreenState();
@@ -25,7 +30,19 @@ class _SearchScreenState extends State<SearchScreen> {
   @override
   void initState() {
     super.initState();
+    _selectedTag = widget.initialTag;
     _loadVideos();
+  }
+
+  @override
+  void didUpdateWidget(SearchScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.initialTag != oldWidget.initialTag) {
+      setState(() {
+        _selectedTag = widget.initialTag;
+      });
+      _loadVideos();
+    }
   }
 
   @override

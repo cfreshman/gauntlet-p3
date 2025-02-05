@@ -12,6 +12,7 @@ import '../widgets/comment_list.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../widgets/add_to_playlist_dialog.dart';
 import '../screens/profile_screen.dart';
+import '../screens/home_screen.dart';
 
 class VideoFeedScreen extends StatefulWidget {
   final List<Video>? videos;  // Optional list of videos to show instead of feed
@@ -567,13 +568,18 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
                                             color: AppColors.accent.withOpacity(0.2),
                                           ),
                                         ),
-                                        child: Text(
-                                          '#${tag.toLowerCase()}',
-                                          style: TextStyle(
-                                            fontFamily: 'Menlo',
-                                            color: AppColors.textPrimary,
-                                            fontWeight: FontWeight.w500,
-                                            fontSize: 11,
+                                        child: GestureDetector(
+                                          onTap: () {
+                                            HomeScreen.navigateToSearch(context, tag);
+                                          },
+                                          child: Text(
+                                            '#${tag.toLowerCase()}',
+                                            style: TextStyle(
+                                              fontFamily: 'Menlo',
+                                              color: AppColors.textPrimary,
+                                              fontWeight: FontWeight.w500,
+                                              fontSize: 11,
+                                            ),
                                           ),
                                         ),
                                       );

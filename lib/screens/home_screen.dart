@@ -10,24 +10,39 @@ import 'package:firebase_auth/firebase_auth.dart';
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
+  static void navigateToSearch(BuildContext context, String tag) {
+    final state = context.findAncestorStateOfType<_HomeScreenState>();
+    if (state != null) {
+      state._navigateToSearch(tag);
+    }
+  }
+
   @override
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
 class _HomeScreenState extends State<HomeScreen> {
   int _selectedIndex = 1;
+  String? _searchTag;
 
-  static const List<Widget> _screens = <Widget>[
-    UploadVideoScreen(),
-    VideoFeedScreen(),
-    SubscriptionFeedScreen(),
-    SearchScreen(),
-    ProfileScreen(),
+  List<Widget> get _screens => [
+    const UploadVideoScreen(),
+    const VideoFeedScreen(),
+    const SubscriptionFeedScreen(),
+    SearchScreen(initialTag: _searchTag),
+    const ProfileScreen(),
   ];
 
   void _onItemTapped(int index) {
     setState(() {
       _selectedIndex = index;
+    });
+  }
+
+  void _navigateToSearch(String tag) {
+    setState(() {
+      _searchTag = tag;
+      _selectedIndex = 3; // Index of SearchScreen
     });
   }
 
