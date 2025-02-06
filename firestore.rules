@@ -44,6 +44,12 @@ service cloud.firestore {
       allow create: if isSignedIn() && request.auth.uid == userId;
       allow update: if isOwner(userId);
       allow delete: if false;  // Don't allow user deletion
+
+      // Liked videos subcollection
+      match /liked_videos/{videoId} {
+        allow read: if true;
+        allow write: if isOwner(userId);
+      }
     }
     
     // Playlists collection

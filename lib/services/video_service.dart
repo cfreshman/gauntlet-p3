@@ -262,39 +262,61 @@ class VideoService {
   // Like/Unlike a video
   Future<void> toggleLike(String videoId) async {
     final user = _auth.currentUser;
-    if (user == null) throw Exception('User must be logged in to like videos');
+    if (user == null) throw Exception('Must be logged in');
 
-    final likeRef = _firestore
+    try {
+      // First check if video exists
+      final videoDoc = await _firestore.collection('videos').doc(videoId).get();
+      if (!videoDoc.exists) {
+        throw Exception('Video not found');
+      }
+
+      // Reference to the user's liked_videos collection
+      final userLikeRef = _firestore
+        .collection('users')
+        .doc(user.uid)
+        .collection('liked_videos')
+        .doc(videoId);
+
+      // Reference to the video's likes collection
+      final videoLikeRef = _firestore
         .collection('videos')
         .doc(videoId)
         .collection('likes')
         .doc(user.uid);
 
-    final likeDoc = await likeRef.get();
-    
-    await _firestore.runTransaction((transaction) async {
-      final videoRef = _firestore.collection('videos').doc(videoId);
-      final videoDoc = await transaction.get(videoRef);
-
-      if (!videoDoc.exists) throw Exception('Video not found');
-
+      // Check if already liked
+      final likeDoc = await userLikeRef.get();
+      
+      // Use a batch to ensure atomic operation
+      final batch = _firestore.batch();
+      
       if (likeDoc.exists) {
         // Unlike
-        transaction.delete(likeRef);
-        transaction.update(videoRef, {
-          'likeCount': FieldValue.increment(-1),
+        batch.delete(userLikeRef);
+        batch.delete(videoLikeRef);
+        batch.update(videoDoc.reference, {
+          'likeCount': FieldValue.increment(-1)
         });
       } else {
         // Like
-        transaction.set(likeRef, {
-          'userId': user.uid,
-          'createdAt': FieldValue.serverTimestamp(),
-        });
-        transaction.update(videoRef, {
-          'likeCount': FieldValue.increment(1),
+        final likeData = {
+          'timestamp': FieldValue.serverTimestamp(),
+          'videoId': videoId,
+          'userId': user.uid
+        };
+        batch.set(userLikeRef, likeData);
+        batch.set(videoLikeRef, likeData);
+        batch.update(videoDoc.reference, {
+          'likeCount': FieldValue.increment(1)
         });
       }
-    });
+
+      await batch.commit();
+    } catch (e) {
+      print('Error toggling like: $e');
+      throw Exception('Failed to update like: ${e.toString().replaceAll('Exception: ', '')}');
+    }
   }
 
   // Check if user has liked a video
@@ -303,12 +325,55 @@ class VideoService {
     if (user == null) return Stream.value(false);
 
     return _firestore
-        .collection('videos')
-        .doc(videoId)
-        .collection('likes')
-        .doc(user.uid)
-        .snapshots()
-        .map((doc) => doc.exists);
+      .collection('users')
+      .doc(user.uid)
+      .collection('liked_videos')
+      .doc(videoId)
+      .snapshots()
+      .map((doc) => doc.exists);
+  }
+
+  // Get liked videos with pagination
+  Stream<List<Video>> getLikedVideos({
+    int limit = 20,
+    DocumentSnapshot? startAfter,
+  }) {
+    final user = _auth.currentUser;
+    if (user == null) return Stream.value([]);
+
+    // Query the user's liked_videos collection
+    Query query = _firestore
+      .collection('users')
+      .doc(user.uid)
+      .collection('liked_videos')
+      .orderBy('timestamp', descending: true)
+      .limit(limit);
+
+    // Add pagination if startAfter is provided
+    if (startAfter != null) {
+      query = query.startAfterDocument(startAfter);
+    }
+
+    // Transform the stream to include full video data
+    return query.snapshots().asyncMap((snapshot) async {
+      final videoFutures = snapshot.docs.map((doc) async {
+        final videoDoc = await _firestore
+          .collection('videos')
+          .doc(doc.id)
+          .get();
+        
+        if (!videoDoc.exists) {
+          // Video was deleted, clean up the like
+          await doc.reference.delete();
+          return null;
+        }
+        
+        return Video.fromFirestore(videoDoc);
+      });
+
+      final videos = await Future.wait(videoFutures);
+      return videos.where((v) => v != null).cast<Video>().toList();
+    });
   }
 
   // Add a comment to a video

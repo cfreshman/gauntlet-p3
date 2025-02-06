@@ -29,7 +29,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
   final _auth = FirebaseAuth.instance;
   final _firestore = FirebaseFirestore.instance;
   final _playlistService = PlaylistService();
-  bool _showVideos = false;
+  bool _showVideos = true;
+  bool _showPlaylists = false;
+  bool _showLikes = false;
   bool _isLoading = true;
   List<Video> _userVideos = [];
   String _bio = 'new user';
@@ -91,212 +93,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
   void _refreshProfile() {
     _loadUserData();
     _loadUserVideos();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    // Check if we're navigating from another screen (not main nav)
-    final bool showBackButton = !_isCurrentUser || Navigator.of(context).canPop();
-
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.background,
-      ),
-      child: SidebarLayout(
-        showBackButton: showBackButton,
-        child: Scaffold(
-          body: Row(
-            children: [
-              // Left side - User info
-              Container(
-                width: 300,
-                padding: const EdgeInsets.all(24),
-                decoration: BoxDecoration(
-                  border: Border(
-                    right: BorderSide(
-                      color: AppColors.background.withOpacity(0.2),
-                      width: 1,
-                    ),
-                  ),
-                ),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    // Avatar
-                    CircleAvatar(
-                      radius: 50,
-                      backgroundColor: AppColors.accent,
-                      backgroundImage: _photoUrl != null ? NetworkImage(_photoUrl!) : null,
-                      child: _photoUrl == null ? Icon(
-                        Icons.person,
-                        size: 50,
-                        color: AppColors.textPrimary,
-                      ) : null,
-                    ),
-                    const SizedBox(height: 16),
-                    // Username
-                    Text(
-                      '@$_username'.lowercase,
-                      style: const TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.textPrimary,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    // Follow button - only show for other users
-                    if (!_isCurrentUser)
-                      StreamBuilder<DocumentSnapshot>(
-                        stream: _firestore
-                            .collection('users')
-                            .doc(_auth.currentUser?.uid)
-                            .snapshots(),
-                        builder: (context, snapshot) {
-                          if (!snapshot.hasData) return const SizedBox();
-                          
-                          final currentUserDoc = snapshot.data!;
-                          final data = currentUserDoc.data() as Map<String, dynamic>;
-                          final following = List<String>.from(data['following'] ?? []);
-                          final isFollowing = following.contains(widget.userId);
-
-                          return FilledButton.tonal(
-                            onPressed: () async {
-                              try {
-                                if (isFollowing) {
-                                  // Unfollow
-                                  await _firestore.collection('users').doc(_auth.currentUser!.uid).update({
-                                    'following': FieldValue.arrayRemove([widget.userId]),
-                                    'followingCount': FieldValue.increment(-1),
-                                  });
-                                  await _firestore.collection('users').doc(widget.userId).update({
-                                    'followers': FieldValue.arrayRemove([_auth.currentUser!.uid]),
-                                    'followerCount': FieldValue.increment(-1),
-                                  });
-                                } else {
-                                  // Follow
-                                  await _firestore.collection('users').doc(_auth.currentUser!.uid).update({
-                                    'following': FieldValue.arrayUnion([widget.userId]),
-                                    'followingCount': FieldValue.increment(1),
-                                  });
-                                  await _firestore.collection('users').doc(widget.userId).update({
-                                    'followers': FieldValue.arrayUnion([_auth.currentUser!.uid]),
-                                    'followerCount': FieldValue.increment(1),
-                                  });
-                                }
-                              } catch (e) {
-                                print('Error toggling follow: $e');
-                              }
-                            },
-                            style: FilledButton.styleFrom(
-                              backgroundColor: isFollowing ? AppColors.background : AppColors.accent,
-                              foregroundColor: isFollowing ? AppColors.accent : AppColors.background,
-                              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(8),
-                                side: BorderSide(
-                                  color: AppColors.accent,
-                                  width: isFollowing ? 1 : 0,
-                                ),
-                              ),
-                            ),
-                            child: Text(
-                              (isFollowing ? 'following' : 'follow').lowercase,
-                            ),
-                          );
-                        },
-                      ),
-                    const SizedBox(height: 8),
-                    // Bio
-                    Text(
-                      _bio.lowercase,
-                      style: TextStyle(
-                        color: AppColors.textPrimary,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    // Stats
-                    if (_userVideos.isNotEmpty) ...[
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                        children: [
-                          _buildStatColumn('videos', _userVideos.length.toString()),
-                          _buildStatColumn('views', _userVideos.fold<int>(0, (sum, video) => sum + video.viewCount).toString()),
-                          _buildStatColumn('likes', _userVideos.fold<int>(0, (sum, video) => sum + video.likeCount).toString()),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-                    ],
-                    // Edit Profile Button - only show for current user
-                    if (_isCurrentUser)
-                      FilledButton.tonal(
-                        onPressed: () async {
-                          await Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => const EditProfileScreen(),
-                            ),
-                          );
-                          _refreshProfile();
-                        },
-                        child: Text('edit profile'.lowercase),
-                      ),
-                  ],
-                ),
-              ),
-
-              // Right side - Content
-              Expanded(
-                child: Column(
-                  children: [
-                    // Toggle bar
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                      decoration: BoxDecoration(
-                        border: Border(
-                          bottom: BorderSide(
-                            color: AppColors.background.withOpacity(0.2),
-                            width: 1,
-                          ),
-                        ),
-                      ),
-                      child: Row(
-                        children: [
-                          if (_userVideos.isNotEmpty) ...[
-                            _buildToggleButton(
-                              title: 'Videos'.lowercase,
-                              isSelected: _showVideos,
-                              onPressed: () => setState(() => _showVideos = true),
-                            ),
-                            const SizedBox(width: 8),
-                          ],
-                          _buildToggleButton(
-                            title: 'Playlists'.lowercase,
-                            isSelected: !_showVideos,
-                            onPressed: () => setState(() => _showVideos = false),
-                          ),
-                        ],
-                      ),
-                    ),
-                    // Content list
-                    Expanded(
-                      child: _isLoading
-                          ? Center(
-                              child: CircularProgressIndicator(
-                                color: AppColors.accent,
-                              ),
-                            )
-                          : _showVideos
-                              ? _buildVideosList()
-                              : _buildPlaylistsList(),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
   }
 
   Widget _buildToggleButton({
@@ -476,6 +272,293 @@ class _ProfileScreenState extends State<ProfileScreen> {
           },
         );
       },
+    );
+  }
+
+  Widget _buildLikedVideosList() {
+    return StreamBuilder<List<Video>>(
+      stream: _videoService.getLikedVideos(),
+      builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return Center(
+            child: Text(
+              'Error: ${snapshot.error}'.toLowerCase(),
+              style: const TextStyle(color: Colors.red),
+            ),
+          );
+        }
+
+        if (!snapshot.hasData) {
+          return Center(
+            child: CircularProgressIndicator(
+              color: AppColors.accent,
+            ),
+          );
+        }
+
+        final likedVideos = snapshot.data!;
+        if (likedVideos.isEmpty) {
+          return Center(
+            child: Text(
+              'no liked videos yet'.toLowerCase(),
+              style: TextStyle(color: AppColors.textSecondary),
+            ),
+          );
+        }
+
+        return ListView.builder(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          itemCount: likedVideos.length,
+          itemBuilder: (context, index) {
+            final video = likedVideos[index];
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: SizedBox(
+                height: 160,
+                child: VideoPreview(
+                  video: video,
+                  showTitle: true,
+                  showCreator: true,
+                  videos: likedVideos,
+                  currentIndex: index,
+                  showTimeAgo: true,
+                  showDuration: true,
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // Check if we're navigating from another screen (not main nav)
+    final bool showBackButton = !_isCurrentUser || Navigator.of(context).canPop();
+
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.background,
+      ),
+      child: SidebarLayout(
+        showBackButton: showBackButton,
+        child: Scaffold(
+          body: Row(
+            children: [
+              // Left side - User info
+              Container(
+                width: 300,
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  border: Border(
+                    right: BorderSide(
+                      color: AppColors.background.withOpacity(0.2),
+                      width: 1,
+                    ),
+                  ),
+                ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    // Avatar
+                    CircleAvatar(
+                      radius: 50,
+                      backgroundColor: AppColors.accent,
+                      backgroundImage: _photoUrl != null ? NetworkImage(_photoUrl!) : null,
+                      child: _photoUrl == null ? Icon(
+                        Icons.person,
+                        size: 50,
+                        color: AppColors.textPrimary,
+                      ) : null,
+                    ),
+                    const SizedBox(height: 16),
+                    // Username
+                    Text(
+                      '@$_username'.lowercase,
+                      style: const TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    // Follow button - only show for other users
+                    if (!_isCurrentUser)
+                      StreamBuilder<DocumentSnapshot>(
+                        stream: _firestore
+                            .collection('users')
+                            .doc(_auth.currentUser?.uid)
+                            .snapshots(),
+                        builder: (context, snapshot) {
+                          if (!snapshot.hasData) return const SizedBox();
+                          
+                          final currentUserDoc = snapshot.data!;
+                          final data = currentUserDoc.data() as Map<String, dynamic>;
+                          final following = List<String>.from(data['following'] ?? []);
+                          final isFollowing = following.contains(widget.userId);
+
+                          return FilledButton.tonal(
+                            onPressed: () async {
+                              try {
+                                if (isFollowing) {
+                                  // Unfollow
+                                  await _firestore.collection('users').doc(_auth.currentUser!.uid).update({
+                                    'following': FieldValue.arrayRemove([widget.userId]),
+                                    'followingCount': FieldValue.increment(-1),
+                                  });
+                                  await _firestore.collection('users').doc(widget.userId).update({
+                                    'followers': FieldValue.arrayRemove([_auth.currentUser!.uid]),
+                                    'followerCount': FieldValue.increment(-1),
+                                  });
+                                } else {
+                                  // Follow
+                                  await _firestore.collection('users').doc(_auth.currentUser!.uid).update({
+                                    'following': FieldValue.arrayUnion([widget.userId]),
+                                    'followingCount': FieldValue.increment(1),
+                                  });
+                                  await _firestore.collection('users').doc(widget.userId).update({
+                                    'followers': FieldValue.arrayUnion([_auth.currentUser!.uid]),
+                                    'followerCount': FieldValue.increment(1),
+                                  });
+                                }
+                              } catch (e) {
+                                print('Error toggling follow: $e');
+                              }
+                            },
+                            style: FilledButton.styleFrom(
+                              backgroundColor: isFollowing ? AppColors.background : AppColors.accent,
+                              foregroundColor: isFollowing ? AppColors.accent : AppColors.background,
+                              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                                side: BorderSide(
+                                  color: AppColors.accent,
+                                  width: isFollowing ? 1 : 0,
+                                ),
+                              ),
+                            ),
+                            child: Text(
+                              (isFollowing ? 'following' : 'follow').lowercase,
+                            ),
+                          );
+                        },
+                      ),
+                    const SizedBox(height: 8),
+                    // Bio
+                    Text(
+                      _bio.lowercase,
+                      style: TextStyle(
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    // Stats
+                    if (_userVideos.isNotEmpty) ...[
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                        children: [
+                          _buildStatColumn('videos', _userVideos.length.toString()),
+                          _buildStatColumn('views', _userVideos.fold<int>(0, (sum, video) => sum + video.viewCount).toString()),
+                          _buildStatColumn('likes', _userVideos.fold<int>(0, (sum, video) => sum + video.likeCount).toString()),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                    ],
+                    // Edit Profile Button - only show for current user
+                    if (_isCurrentUser)
+                      FilledButton.tonal(
+                        onPressed: () async {
+                          await Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const EditProfileScreen(),
+                            ),
+                          );
+                          _refreshProfile();
+                        },
+                        child: Text('edit profile'.lowercase),
+                      ),
+                  ],
+                ),
+              ),
+
+              // Right side - Content
+              Expanded(
+                child: Column(
+                  children: [
+                    // Toggle bar
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      decoration: BoxDecoration(
+                        border: Border(
+                          bottom: BorderSide(
+                            color: AppColors.background.withOpacity(0.2),
+                            width: 1,
+                          ),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          if (_userVideos.isNotEmpty) ...[
+                            _buildToggleButton(
+                              title: 'Videos'.lowercase,
+                              isSelected: _showVideos,
+                              onPressed: () => setState(() {
+                                _showVideos = true;
+                                _showPlaylists = false;
+                                _showLikes = false;
+                              }),
+                            ),
+                            const SizedBox(width: 8),
+                          ],
+                          _buildToggleButton(
+                            title: 'Playlists'.lowercase,
+                            isSelected: _showPlaylists,
+                            onPressed: () => setState(() {
+                              _showVideos = false;
+                              _showPlaylists = true;
+                              _showLikes = false;
+                            }),
+                          ),
+                          if (_isCurrentUser) ...[
+                            const SizedBox(width: 8),
+                            _buildToggleButton(
+                              title: 'Likes'.lowercase,
+                              isSelected: _showLikes,
+                              onPressed: () => setState(() {
+                                _showVideos = false;
+                                _showPlaylists = false;
+                                _showLikes = true;
+                              }),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                    // Content list
+                    Expanded(
+                      child: _isLoading
+                          ? Center(
+                              child: CircularProgressIndicator(
+                                color: AppColors.accent,
+                              ),
+                            )
+                          : _showVideos
+                              ? _buildVideosList()
+                              : _showPlaylists
+                                  ? _buildPlaylistsList()
+                                  : _showLikes
+                                      ? _buildLikedVideosList()
+                                      : const SizedBox(),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
