@@ -39,6 +39,7 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
   bool _showComments = false;
   final Map<String, int> _localLikeCounts = {};
   final Set<String> _likeInProgress = {};
+  bool _showFullInfo = true;
 
   @override
   void initState() {
@@ -46,6 +47,11 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
     _pageController = PageController(initialPage: widget.initialIndex);
     _currentVideoIndex = widget.initialIndex;
     _pageController.addListener(_handlePageChange);
+    Future.delayed(const Duration(seconds: 3), () {
+      if (mounted) {
+        setState(() => _showFullInfo = false);
+      }
+    });
   }
 
   void _handlePageChange() {
@@ -428,6 +434,12 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
                       setState(() {
                         _currentVideoIndex = index;
                         _showComments = false;
+                        _showFullInfo = true;
+                      });
+                      Future.delayed(const Duration(seconds: 3), () {
+                        if (mounted && _currentVideoIndex == index) {
+                          setState(() => _showFullInfo = false);
+                        }
                       });
                     },
                     itemBuilder: (context, index) {
@@ -497,162 +509,175 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
                             isInFeed: true,
                           ),
 
-                          // Video info overlay at bottom
+                          // Video info and actions in a row
                           Positioned(
                             left: 16,
-                            right: 96, // Make room for controls on right
-                            bottom: 16,
-                            child: Container(
-                              padding: const EdgeInsets.all(16),
-                              decoration: BoxDecoration(
-                                color: AppColors.background.withOpacity(0.5),
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    video.title.toLowerCase(),
-                                    style: TextStyle(
-                                      fontFamily: 'Menlo',
-                                      color: AppColors.textPrimary,
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  // View count
-                                  Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Icon(
-                                        Icons.remove_red_eye_outlined,
-                                        size: 16,
-                                        color: AppColors.textSecondary,
-                                      ),
-                                      const SizedBox(width: 4),
-                                      Text(
-                                        '${video.viewCount} views'.toLowerCase(),
-                                        style: TextStyle(
-                                          color: AppColors.textSecondary,
-                                          fontSize: 12,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  if (video.description.isNotEmpty) ...[
-                                    const SizedBox(height: 8),
-                                    Text(
-                                      video.description.toLowerCase(),
-                                      style: TextStyle(
-                                        color: AppColors.textPrimary,
-                                        fontSize: 14,
-                                      ),
-                                      maxLines: 2,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ],
-                                  const SizedBox(height: 12),
-                                  Wrap(
-                                    spacing: 8,
-                                    children: video.tags.map((tag) {
-                                      return Container(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 12,
-                                          vertical: 6,
-                                        ),
-                                        decoration: BoxDecoration(
-                                          color: AppColors.accent.withOpacity(0.1),
-                                          borderRadius: BorderRadius.circular(16),
-                                          border: Border.all(
-                                            color: AppColors.accent.withOpacity(0.2),
-                                          ),
-                                        ),
-                                        child: GestureDetector(
-                                          onTap: () {
-                                            HomeScreen.navigateToSearch(context, tag);
-                                          },
-                                          child: Text(
-                                            '#${tag.toLowerCase()}',
-                                            style: TextStyle(
-                                              fontFamily: 'Menlo',
-                                              color: AppColors.textPrimary,
-                                              fontWeight: FontWeight.w500,
-                                              fontSize: 11,
-                                            ),
-                                          ),
-                                        ),
-                                      );
-                                    }).toList(),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-
-                          // Right side controls with profile
-                          Positioned(
                             right: 16,
                             bottom: 16,
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.end,
                               children: [
-                                // Uploader profile
-                                GestureDetector(
-                                  onTap: () {
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (context) => ProfileScreen(userId: video.creatorId),
+                                // Title card
+                                Expanded(
+                                  flex: 1,
+                                  child: GestureDetector(
+                                    onTap: () {
+                                      setState(() => _showFullInfo = !_showFullInfo);
+                                    },
+                                    child: AnimatedCrossFade(
+                                      firstChild: Container(
+                                        width: double.infinity,
+                                        padding: const EdgeInsets.all(16),
+                                        decoration: BoxDecoration(
+                                          color: AppColors.background.withOpacity(0.5),
+                                          borderRadius: BorderRadius.circular(12),
+                                        ),
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              video.title.toLowerCase(),
+                                              style: TextStyle(
+                                                fontFamily: 'Menlo',
+                                                color: AppColors.textPrimary,
+                                                fontSize: 16,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 4),
+                                            // View count
+                                            Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                Icon(
+                                                  Icons.remove_red_eye_outlined,
+                                                  size: 16,
+                                                  color: AppColors.textSecondary,
+                                                ),
+                                                const SizedBox(width: 4),
+                                                Text(
+                                                  '${video.viewCount} views'.toLowerCase(),
+                                                  style: TextStyle(
+                                                    color: AppColors.textSecondary,
+                                                    fontSize: 12,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                            if (video.description.isNotEmpty) ...[
+                                              const SizedBox(height: 8),
+                                              Text(
+                                                video.description.toLowerCase(),
+                                                style: TextStyle(
+                                                  color: AppColors.textPrimary,
+                                                  fontSize: 14,
+                                                ),
+                                                maxLines: 2,
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                            ],
+                                            const SizedBox(height: 12),
+                                            Wrap(
+                                              spacing: 8,
+                                              children: video.tags.map((tag) {
+                                                return GestureDetector(
+                                                  onTap: () {
+                                                    HomeScreen.navigateToSearch(context, tag);
+                                                  },
+                                                  child: Container(
+                                                    padding: const EdgeInsets.symmetric(
+                                                      horizontal: 12,
+                                                      vertical: 6,
+                                                    ),
+                                                    decoration: BoxDecoration(
+                                                      color: AppColors.accent.withOpacity(0.1),
+                                                      borderRadius: BorderRadius.circular(16),
+                                                      border: Border.all(
+                                                        color: AppColors.accent.withOpacity(0.2),
+                                                      ),
+                                                    ),
+                                                    child: Text(
+                                                      '#${tag.toLowerCase()}',
+                                                      style: TextStyle(
+                                                        fontFamily: 'Menlo',
+                                                        color: AppColors.textPrimary,
+                                                        fontWeight: FontWeight.w500,
+                                                        fontSize: 11,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                );
+                                              }).toList(),
+                                            ),
+                                          ],
+                                        ),
                                       ),
-                                    );
-                                  },
-                                  child: Column(
-                                    children: [
-                                      StreamBuilder<DocumentSnapshot>(
+                                      secondChild: Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                        decoration: BoxDecoration(
+                                          color: AppColors.background.withOpacity(0.5),
+                                          borderRadius: BorderRadius.circular(12),
+                                        ),
+                                        child: Text(
+                                          video.title.toLowerCase(),
+                                          style: TextStyle(
+                                            fontFamily: 'Menlo',
+                                            color: AppColors.textPrimary,
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ),
+                                      crossFadeState: _showFullInfo ? CrossFadeState.showFirst : CrossFadeState.showSecond,
+                                      duration: const Duration(milliseconds: 300),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 16), // Space between title card and buttons
+                                // Column of buttons
+                                Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    // Uploader profile
+                                    GestureDetector(
+                                      onTap: () {
+                                        Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (context) => ProfileScreen(userId: video.creatorId),
+                                          ),
+                                        );
+                                      },
+                                      child: StreamBuilder<DocumentSnapshot>(
                                         stream: FirebaseFirestore.instance
                                             .collection('users')
                                             .doc(video.creatorId)
                                             .snapshots(),
                                         builder: (context, snapshot) {
                                           String? photoUrl;
-                                          String username = video.creatorUsername; // Fallback to stored username
                                           if (snapshot.hasData && snapshot.data!.exists) {
                                             final userData = snapshot.data!.data() as Map<String, dynamic>;
                                             photoUrl = userData['photoUrl'] as String?;
-                                            username = userData['displayName'] ?? video.creatorUsername;
                                           }
                                           
-                                          return Column(
-                                            children: [
-                                              CircleAvatar(
-                                                radius: 20,
-                                                backgroundColor: AppColors.accent,
-                                                backgroundImage: photoUrl != null ? NetworkImage(photoUrl) : null,
-                                                child: photoUrl == null ? Text(
-                                                  username[0].toUpperCase(),
-                                                  style: TextStyle(
-                                                    color: AppColors.background,
-                                                    fontWeight: FontWeight.bold,
-                                                  ),
-                                                ) : null,
+                                          return CircleAvatar(
+                                            radius: 20,
+                                            backgroundColor: AppColors.accent,
+                                            backgroundImage: photoUrl != null ? NetworkImage(photoUrl) : null,
+                                            child: photoUrl == null ? Text(
+                                              video.creatorUsername[0].toUpperCase(),
+                                              style: TextStyle(
+                                                color: AppColors.background,
+                                                fontWeight: FontWeight.bold,
                                               ),
-                                              const SizedBox(height: 4),
-                                              Text(
-                                                '@$username'.toLowerCase(),
-                                                style: TextStyle(
-                                                  color: AppColors.textPrimary,
-                                                  fontSize: 12,
-                                                ),
-                                              ),
-                                            ],
+                                            ) : null,
                                           );
                                         },
                                       ),
-                                      const SizedBox(height: 8),
-                                      _buildVideoActions(video),
-                                    ],
-                                  ),
+                                    ),
+                                    const SizedBox(height: 8),
+                                    _buildVideoActions(video),
+                                  ],
                                 ),
                               ],
                             ),
