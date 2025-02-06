@@ -125,16 +125,7 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
         child: StreamBuilder<Playlist?>(
           stream: _playlistService.getPlaylistById(widget.playlistId),
           builder: (context, snapshot) {
-            if (snapshot.hasError) {
-              return Center(
-                child: Text(
-                  'error loading playlist'.toLowerCase(),
-                  style: TextStyle(color: Colors.red),
-                ),
-              );
-            }
-
-            if (!snapshot.hasData) {
+            if (!snapshot.hasData || snapshot.hasError) {
               return const Center(child: LoadingIndicator());
             }
 
