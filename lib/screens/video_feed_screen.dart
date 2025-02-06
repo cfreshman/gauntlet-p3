@@ -14,6 +14,7 @@ import '../widgets/add_to_playlist_dialog.dart';
 import '../screens/profile_screen.dart';
 import '../screens/home_screen.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../services/minecraft_skin_service.dart';
 
 class VideoFeedScreen extends StatefulWidget {
   final List<Video>? videos;  // Optional list of videos to show instead of feed
@@ -229,11 +230,49 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
                   .snapshots(),
               builder: (context, snapshot) {
                 String? photoUrl;
+                String? minecraftUsername;
                 if (snapshot.hasData && snapshot.data!.exists) {
                   final userData = snapshot.data!.data() as Map<String, dynamic>;
                   photoUrl = userData['photoUrl'] as String?;
+                  minecraftUsername = userData['minecraftUsername'] as String?;
                 }
                 
+                if (minecraftUsername != null) {
+                  // Use Minecraft skin as avatar
+                  return FutureBuilder<String?>(
+                    future: MinecraftSkinService().getFullBodyUrl(minecraftUsername),
+                    builder: (context, skinSnapshot) {
+                      if (skinSnapshot.hasData && skinSnapshot.data != null) {
+                        return Container(
+                          width: 40,
+                          height: 60,
+                          margin: const EdgeInsets.only(bottom: 8),
+                          decoration: BoxDecoration(
+                            image: DecorationImage(
+                              image: NetworkImage(skinSnapshot.data!),
+                              fit: BoxFit.contain,
+                            ),
+                          ),
+                        );
+                      }
+                      // Fallback to regular avatar if skin loading fails
+                      return CircleAvatar(
+                        radius: 20,
+                        backgroundColor: AppColors.accent,
+                        backgroundImage: photoUrl != null ? NetworkImage(photoUrl) : null,
+                        child: photoUrl == null ? Text(
+                          video.creatorUsername[0].toUpperCase(),
+                          style: TextStyle(
+                            color: AppColors.background,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ) : null,
+                      );
+                    },
+                  );
+                }
+                
+                // Regular avatar if no Minecraft username
                 return CircleAvatar(
                   radius: 20,
                   backgroundColor: AppColors.accent,

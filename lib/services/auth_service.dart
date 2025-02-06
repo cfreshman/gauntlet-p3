@@ -111,8 +111,9 @@ class AuthService {
 
   Future<void> updateProfile({
     required String username,
-    String? photoUrl,
     String? bio,
+    String? minecraftUsername,  // This can be empty string
+    String? photoUrl,
   }) async {
     final user = auth.currentUser;
     if (user == null) throw Exception('Not logged in');
@@ -137,6 +138,7 @@ class AuthService {
       final Map<String, dynamic> userData = {
         'username': username.toLowerCase(),
         'displayName': username,
+        'minecraftUsername': minecraftUsername,  // Will be null or empty string
       };
       if (bio != null && bio.isNotEmpty) {
         userData['bio'] = bio;

@@ -11,6 +11,7 @@ import '../screens/playlist_detail_screen.dart';
 import '../widgets/sidebar_layout.dart';
 import 'edit_profile_screen.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../services/minecraft_skin_service.dart';
 
 class ProfileScreen extends StatefulWidget {
   final String? userId;  // If null, show current user's profile
@@ -29,6 +30,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   final _auth = FirebaseAuth.instance;
   final _firestore = FirebaseFirestore.instance;
   final _playlistService = PlaylistService();
+  final _minecraftService = MinecraftSkinService();
   bool _showVideos = true;
   bool _showPlaylists = false;
   bool _showLikes = false;
@@ -37,6 +39,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   String _bio = 'new user';
   String _username = 'Anonymous';
   String? _photoUrl;
+  String? _minecraftUsername;
   bool _isCurrentUser = false;
   
   @override
@@ -62,6 +65,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           _username = data['displayName'] ?? 'Anonymous';
           _bio = data['bio'] ?? 'new user';
           _photoUrl = data['photoUrl'];
+          _minecraftUsername = data['minecraftUsername'];
         });
       }
     } catch (e) {
@@ -332,6 +336,44 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
+  Widget _buildAvatar() {
+    if (_minecraftUsername != null) {
+      return FutureBuilder<String>(
+        future: _minecraftService.getFullBodyUrl(_minecraftUsername!),
+        builder: (context, snapshot) {
+          if (snapshot.hasData) {
+            return Container(
+              width: 67,  // 100px height * (2/3) to maintain aspect ratio
+              height: 100,
+              decoration: BoxDecoration(
+                image: DecorationImage(
+                  image: NetworkImage(snapshot.data!),
+                  fit: BoxFit.contain,
+                ),
+              ),
+            );
+          }
+          return _buildProfilePicture();
+        },
+      );
+    }
+    
+    return _buildProfilePicture();
+  }
+
+  Widget _buildProfilePicture() {
+    return CircleAvatar(
+      radius: 50,
+      backgroundColor: AppColors.accent,
+      backgroundImage: _photoUrl != null ? NetworkImage(_photoUrl!) : null,
+      child: _photoUrl == null ? Icon(
+        Icons.person,
+        size: 50,
+        color: AppColors.textPrimary,
+      ) : null,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     // Check if we're navigating from another screen (not main nav)
@@ -362,16 +404,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     // Avatar
-                    CircleAvatar(
-                      radius: 50,
-                      backgroundColor: AppColors.accent,
-                      backgroundImage: _photoUrl != null ? NetworkImage(_photoUrl!) : null,
-                      child: _photoUrl == null ? Icon(
-                        Icons.person,
-                        size: 50,
-                        color: AppColors.textPrimary,
-                      ) : null,
-                    ),
+                    _buildAvatar(),
                     const SizedBox(height: 16),
                     // Username
                     Text(

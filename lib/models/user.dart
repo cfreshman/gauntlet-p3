@@ -5,6 +5,7 @@ class User {
   final String username;
   final String displayName;
   final String? photoUrl;
+  final String? minecraftUsername;
   final String bio;
   final int followerCount;
   final int followingCount;
@@ -18,6 +19,7 @@ class User {
     required this.username,
     required this.displayName,
     this.photoUrl,
+    this.minecraftUsername,
     this.bio = '',
     this.followerCount = 0,
     this.followingCount = 0,
@@ -34,6 +36,7 @@ class User {
       username: data['username'] ?? '',
       displayName: data['displayName'] ?? '',
       photoUrl: data['photoUrl'],
+      minecraftUsername: data['minecraftUsername'],
       bio: data['bio'] ?? '',
       followerCount: data['followerCount'] ?? 0,
       followingCount: data['followingCount'] ?? 0,
@@ -49,6 +52,7 @@ class User {
       'username': username,
       'displayName': displayName,
       'photoUrl': photoUrl,
+      'minecraftUsername': minecraftUsername,
       'bio': bio,
       'followerCount': followerCount,
       'followingCount': followingCount,
