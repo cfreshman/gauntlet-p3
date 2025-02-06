@@ -242,6 +242,10 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
                   return FutureBuilder<String?>(
                     future: MinecraftSkinService().getFullBodyUrl(minecraftUsername),
                     builder: (context, skinSnapshot) {
+                      if (!skinSnapshot.hasData) {
+                        return const SizedBox(width: 40, height: 60); // Invisible placeholder
+                      }
+
                       if (skinSnapshot.hasData && skinSnapshot.data != null) {
                         return Container(
                           width: 40,
@@ -255,6 +259,7 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
                           ),
                         );
                       }
+
                       // Fallback to regular avatar if skin loading fails
                       return CircleAvatar(
                         radius: 20,

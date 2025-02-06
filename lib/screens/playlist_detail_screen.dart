@@ -8,6 +8,8 @@ import '../widgets/sidebar_layout.dart';
 import '../widgets/loading_indicator.dart';
 import '../extensions/string_extensions.dart';
 import 'video_feed_screen.dart';
+import '../services/auth_service.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class PlaylistDetailScreen extends StatefulWidget {
   final String playlistId;
@@ -25,6 +27,8 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
   final _playlistService = PlaylistService();
   final _nameController = TextEditingController();
   bool _isEditing = false;
+  final _auth = AuthService();
+  final _firestore = FirebaseFirestore.instance;
 
   @override
   void dispose() {
@@ -118,39 +122,21 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      body: SidebarLayout(
-        showBackButton: true,
-        child: StreamBuilder<Playlist?>(
-          stream: _playlistService.getPlaylistById(widget.playlistId),
-          builder: (context, snapshot) {
-            if (!snapshot.hasData || snapshot.hasError) {
-              return const Center(child: LoadingIndicator());
-            }
+    return StreamBuilder<Playlist?>(
+      stream: _playlistService.getPlaylistById(widget.playlistId),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData || snapshot.hasError) {
+          return const Center(child: LoadingIndicator());
+        }
 
-            final playlist = snapshot.data;
-            if (playlist == null) {
-              return Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      Icons.playlist_remove,
-                      size: 64,
-                      color: AppColors.accent.withOpacity(0.5),
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      'playlist not found'.toLowerCase(),
-                      style: TextStyle(color: AppColors.textSecondary),
-                    ),
-                  ],
-                ),
-              );
-            }
+        final playlist = snapshot.data!;
+        final isCurrentUserPlaylist = _auth.currentUser?.uid == playlist.userId;
 
-            return Row(
+        return Scaffold(
+          backgroundColor: AppColors.background,
+          body: SidebarLayout(
+            showBackButton: true,
+            child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // Left side - Playlist info
@@ -192,9 +178,9 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                         ),
                       ),
                       const SizedBox(height: 16),
-                      
-                      // Playlist name
-                      if (_isEditing) ...[
+
+                      // Playlist name and edit controls
+                      if (_isEditing && isCurrentUserPlaylist) ...[
                         TextField(
                           controller: _nameController,
                           style: TextStyle(
@@ -211,10 +197,6 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                               borderRadius: BorderRadius.circular(8),
                               borderSide: BorderSide(color: AppColors.accent, width: 2),
                             ),
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 12,
-                            ),
                           ),
                           onSubmitted: (value) => _updatePlaylistName(playlist.id, value),
                         ),
@@ -222,27 +204,46 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                         Row(
                           children: [
                             Expanded(
-                              child: Text(
-                                playlist.name.toLowerCase(),
-                                style: TextStyle(
-                                  color: AppColors.textPrimary,
-                                  fontSize: 24,
-                                  fontWeight: FontWeight.bold,
-                                ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    playlist.name.toLowerCase(),
+                                    style: TextStyle(
+                                      color: AppColors.textPrimary,
+                                      fontSize: 24,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  FutureBuilder<DocumentSnapshot>(
+                                    future: _firestore.collection('users').doc(playlist.userId).get(),
+                                    builder: (context, snapshot) {
+                                      if (!snapshot.hasData) return const SizedBox();
+                                      final username = snapshot.data?.get('username') as String? ?? '';
+                                      return Text(
+                                        '@$username'.toLowerCase(),
+                                        style: TextStyle(
+                                          color: AppColors.accent,
+                                          fontSize: 14,
+                                        ),
+                                      );
+                                    },
+                                  ),
+                                ],
                               ),
                             ),
-                            IconButton(
-                              icon: Icon(Icons.edit, color: AppColors.accent),
-                              onPressed: () {
-                                _nameController.text = playlist.name;
-                                setState(() => _isEditing = true);
-                              },
-                            ),
+                            if (isCurrentUserPlaylist)
+                              IconButton(
+                                icon: Icon(Icons.edit, color: AppColors.accent),
+                                onPressed: () {
+                                  _nameController.text = playlist.name;
+                                  setState(() => _isEditing = true);
+                                },
+                              ),
                           ],
                         ),
                       ],
-                      const SizedBox(height: 8),
-                      
+
                       // Video count
                       Text(
                         '${playlist.videoIds.length} videos'.toLowerCase(),
@@ -251,120 +252,129 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                           fontSize: 16,
                         ),
                       ),
-                      const SizedBox(height: 24),
-                      
-                      // Delete button
-                      SizedBox(
-                        width: double.infinity,
-                        child: TextButton(
-                          style: TextButton.styleFrom(
-                            foregroundColor: Colors.red,
-                            padding: const EdgeInsets.symmetric(vertical: 16),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
-                              side: const BorderSide(color: Colors.red),
+
+                      if (isCurrentUserPlaylist) ...[
+                        const SizedBox(height: 24),
+                        // Delete button
+                        SizedBox(
+                          width: double.infinity,
+                          child: TextButton(
+                            style: TextButton.styleFrom(
+                              foregroundColor: Colors.red,
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                                side: const BorderSide(color: Colors.red),
+                              ),
                             ),
+                            onPressed: () => _deletePlaylist(playlist.id),
+                            child: Text('delete playlist'.toLowerCase()),
                           ),
-                          onPressed: () => _deletePlaylist(playlist.id),
-                          child: Text('delete playlist'.toLowerCase()),
                         ),
-                      ),
+                      ],
                     ],
                   ),
                 ),
 
                 // Right side - Video list
                 Expanded(
-                  child: Container(
-                    padding: const EdgeInsets.all(16),
-                    child: StreamBuilder<List<Video>>(
-                      stream: _playlistService.getPlaylistVideosStream(playlist.id),
-                      builder: (context, snapshot) {
-                        if (snapshot.hasError) {
-                          return Center(
-                            child: Text(
-                              'error loading videos'.toLowerCase(),
-                              style: TextStyle(color: Colors.red),
-                            ),
-                          );
-                        }
+                  child: StreamBuilder<List<Video>>(
+                    stream: _playlistService.getPlaylistVideosStream(playlist.id),
+                    builder: (context, videoSnapshot) {
+                      if (!videoSnapshot.hasData) {
+                        return const Center(child: LoadingIndicator());
+                      }
 
-                        if (!snapshot.hasData) {
-                          return const Center(child: LoadingIndicator());
-                        }
-
-                        final videos = snapshot.data!;
-                        if (videos.isEmpty) {
-                          return Center(
-                            child: Text(
-                              'no videos in playlist'.toLowerCase(),
-                              style: TextStyle(color: AppColors.textSecondary),
-                            ),
-                          );
-                        }
-
-                        return ReorderableListView.builder(
-                          itemCount: videos.length,
-                          onReorder: (oldIndex, newIndex) async {
-                            if (oldIndex < newIndex) {
-                              newIndex -= 1;
-                            }
-                            try {
-                              final newOrder = List<String>.from(playlist.videoIds);
-                              final item = newOrder.removeAt(oldIndex);
-                              newOrder.insert(newIndex, item);
-                              await _playlistService.reorderVideos(playlist.id, newOrder);
-                            } catch (e) {
-                              if (mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                                  content: Text('failed to update playlist'.toLowerCase()),
-                                  backgroundColor: Colors.red,
-                                ));
-                              }
-                            }
-                          },
-                          itemBuilder: (context, index) {
-                            final video = videos[index];
-                            return Dismissible(
-                              key: ValueKey(video.id),
-                              direction: DismissDirection.endToStart,
-                              background: Container(
-                                alignment: Alignment.centerRight,
-                                padding: const EdgeInsets.only(right: 16),
-                                decoration: BoxDecoration(
-                                  color: Colors.red,
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: const Icon(
-                                  Icons.delete_outline,
-                                  color: Colors.white,
-                                ),
+                      final videos = videoSnapshot.data!;
+                      if (videos.isEmpty) {
+                        return Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.playlist_play,
+                                size: 64,
+                                color: AppColors.accent.withOpacity(0.5),
                               ),
-                              onDismissed: (_) => _removeVideo(playlist.id, video.id),
-                              child: Container(
-                                margin: const EdgeInsets.only(bottom: 16),
-                                child: VideoPreview(
-                                  video: video,
-                                  showTitle: true,
-                                  showCreator: true,
-                                  videos: videos,
-                                  currentIndex: index,
-                                  showTimeAgo: true,
-                                  showDuration: true,
-                                ),
+                              const SizedBox(height: 16),
+                              Text(
+                                'no videos in playlist'.toLowerCase(),
+                                style: TextStyle(color: AppColors.textSecondary),
                               ),
-                            );
-                          },
+                            ],
+                          ),
                         );
-                      },
-                    ),
+                      }
+
+                      return ReorderableListView.builder(
+                        padding: const EdgeInsets.all(16),
+                        itemCount: videos.length,
+                        onReorderStart: (_) {
+                          // Only allow reordering for playlist owner
+                          if (!isCurrentUserPlaylist) return;
+                        },
+                        onReorder: (oldIndex, newIndex) async {
+                          if (!isCurrentUserPlaylist) return;
+                          if (oldIndex < newIndex) {
+                            newIndex -= 1;
+                          }
+                          try {
+                            final newOrder = List<String>.from(playlist.videoIds);
+                            final item = newOrder.removeAt(oldIndex);
+                            newOrder.insert(newIndex, item);
+                            await _playlistService.reorderVideos(playlist.id, newOrder);
+                          } catch (e) {
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                                content: Text('failed to update playlist'.toLowerCase()),
+                                backgroundColor: Colors.red,
+                              ));
+                            }
+                          }
+                        },
+                        itemBuilder: (context, index) {
+                          final video = videos[index];
+                          return Dismissible(
+                            key: ValueKey(video.id),
+                            direction: isCurrentUserPlaylist 
+                                ? DismissDirection.endToStart 
+                                : DismissDirection.none,
+                            background: Container(
+                              alignment: Alignment.centerRight,
+                              padding: const EdgeInsets.only(right: 16),
+                              decoration: BoxDecoration(
+                                color: Colors.red,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: const Icon(
+                                Icons.delete_outline,
+                                color: Colors.white,
+                              ),
+                            ),
+                            onDismissed: (_) => _removeVideo(playlist.id, video.id),
+                            child: Container(
+                              margin: const EdgeInsets.only(bottom: 16),
+                              child: VideoPreview(
+                                video: video,
+                                showTitle: true,
+                                showCreator: true,
+                                videos: videos,
+                                currentIndex: index,
+                                showTimeAgo: true,
+                                showDuration: true,
+                              ),
+                            ),
+                          );
+                        },
+                      );
+                    },
                   ),
                 ),
               ],
-            );
-          },
-        ),
-      ),
+            ),
+          ),
+        );
+      },
     );
   }
 } 
