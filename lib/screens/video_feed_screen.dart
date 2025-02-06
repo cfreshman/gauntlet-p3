@@ -166,6 +166,44 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
     }
   }
 
+  Future<void> _handleLike(Video video, bool currentlyLiked) async {
+    // Don't allow multiple like operations at once
+    if (_likeInProgress.contains(video.id)) return;
+
+    // Update local state immediately
+    setState(() {
+      _likeInProgress.add(video.id);
+      _localLikeCounts[video.id] = (_localLikeCounts[video.id] ?? video.likeCount) + (currentlyLiked ? -1 : 1);
+    });
+
+    try {
+      await _videoService.toggleLike(video.id);
+    } catch (e) {
+      // Revert on error
+      if (mounted) {
+        setState(() {
+          _localLikeCounts[video.id] = (_localLikeCounts[video.id] ?? video.likeCount) + (currentlyLiked ? 1 : -1);
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Failed to update like'.toLowerCase(),
+              style: TextStyle(color: AppColors.background),
+            ),
+            backgroundColor: AppColors.error,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _likeInProgress.remove(video.id);
+        });
+      }
+    }
+  }
+
   Widget _buildVideoActions(Video video) {
     final isVideoOwner = _authService.currentUser?.uid == video.creatorId;
 
@@ -178,6 +216,7 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
           builder: (context, snapshot) {
             final hasLiked = snapshot.data ?? false;
             final likeCount = _localLikeCounts[video.id] ?? video.likeCount;
+            final isProcessing = _likeInProgress.contains(video.id);
             
             return Container(
               margin: const EdgeInsets.only(bottom: 8),
@@ -188,18 +227,27 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
               child: Column(
                 children: [
                   IconButton(
-                    icon: Icon(
-                      hasLiked ? Icons.favorite : Icons.favorite_border,
-                      color: hasLiked ? AppColors.accent : AppColors.textPrimary,
-                    ),
-                    onPressed: () => _videoService.toggleLike(video.id),
+                    icon: isProcessing 
+                      ? SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: hasLiked ? AppColors.accent : AppColors.textPrimary,
+                          ),
+                        )
+                      : Icon(
+                          hasLiked ? Icons.favorite : Icons.favorite_border,
+                          color: hasLiked ? AppColors.accent : AppColors.textPrimary,
+                        ),
+                    onPressed: isProcessing ? null : () => _handleLike(video, hasLiked),
                   ),
                   Padding(
                     padding: const EdgeInsets.only(bottom: 4),
                     child: Text(
                       '$likeCount'.toLowerCase(),
                       style: TextStyle(
-                        color: AppColors.textPrimary,
+                        color: hasLiked ? AppColors.accent : AppColors.textPrimary,
                         fontSize: 12,
                       ),
                     ),
