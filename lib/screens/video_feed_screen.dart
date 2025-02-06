@@ -218,155 +218,153 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
             final likeCount = _localLikeCounts[video.id] ?? video.likeCount;
             final isProcessing = _likeInProgress.contains(video.id);
             
-            return Container(
-              margin: const EdgeInsets.only(bottom: 8),
-              decoration: BoxDecoration(
-                color: AppColors.background.withOpacity(0.5),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Column(
-                children: [
-                  IconButton(
-                    icon: isProcessing 
-                      ? SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
+            return SizedBox(
+              width: 40,
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: isProcessing ? null : () => _handleLike(video, hasLiked),
+                  borderRadius: BorderRadius.circular(12),
+                  child: Container(
+                    margin: const EdgeInsets.only(bottom: 8),
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    decoration: BoxDecoration(
+                      color: AppColors.background.withOpacity(0.5),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Column(
+                      children: [
+                        isProcessing 
+                          ? SizedBox(
+                              width: 24,
+                              height: 24,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: hasLiked ? AppColors.accent : AppColors.textPrimary,
+                              ),
+                            )
+                          : Icon(
+                              hasLiked ? Icons.favorite : Icons.favorite_border,
+                              color: hasLiked ? AppColors.accent : AppColors.textPrimary,
+                              size: 24,
+                            ),
+                        const SizedBox(height: 4),
+                        Text(
+                          '$likeCount'.toLowerCase(),
+                          style: TextStyle(
                             color: hasLiked ? AppColors.accent : AppColors.textPrimary,
+                            fontSize: 12,
                           ),
-                        )
-                      : Icon(
-                          hasLiked ? Icons.favorite : Icons.favorite_border,
-                          color: hasLiked ? AppColors.accent : AppColors.textPrimary,
                         ),
-                    onPressed: isProcessing ? null : () => _handleLike(video, hasLiked),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 4),
-                    child: Text(
-                      '$likeCount'.toLowerCase(),
-                      style: TextStyle(
-                        color: hasLiked ? AppColors.accent : AppColors.textPrimary,
-                        fontSize: 12,
-                      ),
+                      ],
                     ),
                   ),
-                ],
+                ),
               ),
             );
           },
         ),
         
         // Comment button with count
-        Container(
-          margin: const EdgeInsets.only(bottom: 8),
-          decoration: BoxDecoration(
-            color: AppColors.background.withOpacity(0.5),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Column(
-            children: [
-              IconButton(
-                icon: Icon(
-                  Icons.comment_outlined,
-                  color: _showComments ? AppColors.accent : AppColors.textPrimary,
+        SizedBox(
+          width: 40,
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: _toggleComments,
+              borderRadius: BorderRadius.circular(12),
+              child: Container(
+                margin: const EdgeInsets.only(bottom: 8),
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                decoration: BoxDecoration(
+                  color: AppColors.background.withOpacity(0.5),
+                  borderRadius: BorderRadius.circular(12),
                 ),
-                onPressed: _toggleComments,
-              ),
-              Padding(
-                padding: const EdgeInsets.only(bottom: 4),
-                child: StreamBuilder<DocumentSnapshot>(
-                  stream: _videoService.firestore
-                      .collection('videos')
-                      .doc(video.id)
-                      .snapshots(),
-                  builder: (context, snapshot) {
-                    final commentCount = snapshot.hasData
-                        ? (snapshot.data!.data() as Map<String, dynamic>)['commentCount'] ?? 0
-                        : video.commentCount;
-                    return Text(
-                      '$commentCount'.toLowerCase(),
-                      style: TextStyle(
-                        color: _showComments ? AppColors.accent : AppColors.textPrimary,
-                        fontSize: 12,
-                      ),
-                    );
-                  },
+                child: Column(
+                  children: [
+                    Icon(
+                      Icons.comment_outlined,
+                      color: _showComments ? AppColors.accent : AppColors.textPrimary,
+                      size: 24,
+                    ),
+                    const SizedBox(height: 4),
+                    StreamBuilder<DocumentSnapshot>(
+                      stream: _videoService.firestore
+                          .collection('videos')
+                          .doc(video.id)
+                          .snapshots(),
+                      builder: (context, snapshot) {
+                        final commentCount = snapshot.hasData
+                            ? (snapshot.data!.data() as Map<String, dynamic>)['commentCount'] ?? 0
+                            : video.commentCount;
+                        return Text(
+                          '$commentCount'.toLowerCase(),
+                          style: TextStyle(
+                            color: _showComments ? AppColors.accent : AppColors.textPrimary,
+                            fontSize: 12,
+                          ),
+                        );
+                      },
+                    ),
+                  ],
                 ),
               ),
-            ],
+            ),
           ),
         ),
         
         // Add to playlist button
-        Container(
-          margin: EdgeInsets.only(bottom: isVideoOwner ? 8 : 0),
-          decoration: BoxDecoration(
-            color: AppColors.background.withOpacity(0.5),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: IconButton(
-            icon: Icon(
-              Icons.playlist_add,
-              color: AppColors.textPrimary,
+        SizedBox(
+          width: 40,
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: () {
+                showDialog(
+                  context: context,
+                  builder: (context) => AddToPlaylistDialog(videoId: video.id),
+                );
+              },
+              borderRadius: BorderRadius.circular(12),
+              child: Container(
+                margin: EdgeInsets.only(bottom: isVideoOwner ? 8 : 0),
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                decoration: BoxDecoration(
+                  color: AppColors.background.withOpacity(0.5),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(
+                  Icons.playlist_add,
+                  color: AppColors.textPrimary,
+                  size: 24,
+                ),
+              ),
             ),
-            onPressed: () {
-              showDialog(
-                context: context,
-                builder: (context) => AddToPlaylistDialog(videoId: video.id),
-              );
-            },
           ),
         ),
         
         // Delete button (only for video owner)
         if (isVideoOwner)
-          Container(
-            decoration: BoxDecoration(
-              color: AppColors.background.withOpacity(0.5),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: IconButton(
-              icon: Icon(
-                Icons.delete_outline,
-                color: AppColors.error,
-              ),
-              onPressed: () {
-                showDialog(
-                  context: context,
-                  builder: (context) => AlertDialog(
-                    backgroundColor: AppColors.background,
-                    title: Text(
-                      'delete video?'.toLowerCase(),
-                      style: TextStyle(color: AppColors.textPrimary),
-                    ),
-                    content: Text(
-                      'this action cannot be undone.'.toLowerCase(),
-                      style: TextStyle(color: AppColors.textSecondary),
-                    ),
-                    actions: [
-                      TextButton(
-                        onPressed: () => Navigator.pop(context),
-                        child: Text(
-                          'cancel'.toLowerCase(),
-                          style: TextStyle(color: AppColors.textSecondary),
-                        ),
-                      ),
-                      TextButton(
-                        onPressed: () {
-                          Navigator.pop(context);
-                          _deleteVideo(video);
-                        },
-                        child: Text(
-                          'delete'.toLowerCase(),
-                          style: TextStyle(color: AppColors.error),
-                        ),
-                      ),
-                    ],
+          SizedBox(
+            width: 40,
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: () => _deleteVideo(video),
+                borderRadius: BorderRadius.circular(12),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  decoration: BoxDecoration(
+                    color: AppColors.background.withOpacity(0.5),
+                    borderRadius: BorderRadius.circular(12),
                   ),
-                );
-              },
+                  child: Icon(
+                    Icons.delete_outline,
+                    color: AppColors.error,
+                    size: 24,
+                  ),
+                ),
+              ),
             ),
           ),
       ],
