@@ -210,6 +210,47 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
+        // Uploader profile
+        Container(
+          margin: const EdgeInsets.only(bottom: 8),
+          child: GestureDetector(
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => ProfileScreen(userId: video.creatorId),
+                ),
+              );
+            },
+            child: StreamBuilder<DocumentSnapshot>(
+              stream: FirebaseFirestore.instance
+                  .collection('users')
+                  .doc(video.creatorId)
+                  .snapshots(),
+              builder: (context, snapshot) {
+                String? photoUrl;
+                if (snapshot.hasData && snapshot.data!.exists) {
+                  final userData = snapshot.data!.data() as Map<String, dynamic>;
+                  photoUrl = userData['photoUrl'] as String?;
+                }
+                
+                return CircleAvatar(
+                  radius: 20,
+                  backgroundColor: AppColors.accent,
+                  backgroundImage: photoUrl != null ? NetworkImage(photoUrl) : null,
+                  child: photoUrl == null ? Text(
+                    video.creatorUsername[0].toUpperCase(),
+                    style: TextStyle(
+                      color: AppColors.background,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ) : null,
+                );
+              },
+            ),
+          ),
+        ),
+
         // Like button with count
         StreamBuilder<bool>(
           stream: _videoService.hasLiked(video.id),
@@ -218,45 +259,44 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
             final likeCount = _localLikeCounts[video.id] ?? video.likeCount;
             final isProcessing = _likeInProgress.contains(video.id);
             
-            return SizedBox(
-              width: 40,
-              child: Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  onTap: isProcessing ? null : () => _handleLike(video, hasLiked),
+            return Container(
+              margin: const EdgeInsets.only(bottom: 8),
+              child: SizedBox(
+                width: 40,
+                child: Material(
+                  color: AppColors.background.withOpacity(0.5),
                   borderRadius: BorderRadius.circular(12),
-                  child: Container(
-                    margin: const EdgeInsets.only(bottom: 8),
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                    decoration: BoxDecoration(
-                      color: AppColors.background.withOpacity(0.5),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Column(
-                      children: [
-                        isProcessing 
-                          ? SizedBox(
-                              width: 24,
-                              height: 24,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
+                  child: InkWell(
+                    onTap: isProcessing ? null : () => _handleLike(video, hasLiked),
+                    borderRadius: BorderRadius.circular(12),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      child: Column(
+                        children: [
+                          isProcessing 
+                            ? SizedBox(
+                                width: 24,
+                                height: 24,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: hasLiked ? AppColors.accent : AppColors.textPrimary,
+                                ),
+                              )
+                            : Icon(
+                                hasLiked ? Icons.favorite : Icons.favorite_border,
                                 color: hasLiked ? AppColors.accent : AppColors.textPrimary,
+                                size: 24,
                               ),
-                            )
-                          : Icon(
-                              hasLiked ? Icons.favorite : Icons.favorite_border,
+                          const SizedBox(height: 4),
+                          Text(
+                            '$likeCount'.toLowerCase(),
+                            style: TextStyle(
                               color: hasLiked ? AppColors.accent : AppColors.textPrimary,
-                              size: 24,
+                              fontSize: 12,
                             ),
-                        const SizedBox(height: 4),
-                        Text(
-                          '$likeCount'.toLowerCase(),
-                          style: TextStyle(
-                            color: hasLiked ? AppColors.accent : AppColors.textPrimary,
-                            fontSize: 12,
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
                 ),
@@ -266,47 +306,46 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
         ),
         
         // Comment button with count
-        SizedBox(
-          width: 40,
-          child: Material(
-            color: Colors.transparent,
-            child: InkWell(
-              onTap: _toggleComments,
+        Container(
+          margin: const EdgeInsets.only(bottom: 8),
+          child: SizedBox(
+            width: 40,
+            child: Material(
+              color: AppColors.background.withOpacity(0.5),
               borderRadius: BorderRadius.circular(12),
-              child: Container(
-                margin: const EdgeInsets.only(bottom: 8),
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                decoration: BoxDecoration(
-                  color: AppColors.background.withOpacity(0.5),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Column(
-                  children: [
-                    Icon(
-                      Icons.comment_outlined,
-                      color: _showComments ? AppColors.accent : AppColors.textPrimary,
-                      size: 24,
-                    ),
-                    const SizedBox(height: 4),
-                    StreamBuilder<DocumentSnapshot>(
-                      stream: _videoService.firestore
-                          .collection('videos')
-                          .doc(video.id)
-                          .snapshots(),
-                      builder: (context, snapshot) {
-                        final commentCount = snapshot.hasData
-                            ? (snapshot.data!.data() as Map<String, dynamic>)['commentCount'] ?? 0
-                            : video.commentCount;
-                        return Text(
-                          '$commentCount'.toLowerCase(),
-                          style: TextStyle(
-                            color: _showComments ? AppColors.accent : AppColors.textPrimary,
-                            fontSize: 12,
-                          ),
-                        );
-                      },
-                    ),
-                  ],
+              child: InkWell(
+                onTap: _toggleComments,
+                borderRadius: BorderRadius.circular(12),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  child: Column(
+                    children: [
+                      Icon(
+                        Icons.comment_outlined,
+                        color: _showComments ? AppColors.accent : AppColors.textPrimary,
+                        size: 24,
+                      ),
+                      const SizedBox(height: 4),
+                      StreamBuilder<DocumentSnapshot>(
+                        stream: _videoService.firestore
+                            .collection('videos')
+                            .doc(video.id)
+                            .snapshots(),
+                        builder: (context, snapshot) {
+                          final commentCount = snapshot.hasData
+                              ? (snapshot.data!.data() as Map<String, dynamic>)['commentCount'] ?? 0
+                              : video.commentCount;
+                          return Text(
+                            '$commentCount'.toLowerCase(),
+                            style: TextStyle(
+                              color: _showComments ? AppColors.accent : AppColors.textPrimary,
+                              fontSize: 12,
+                            ),
+                          );
+                        },
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -314,29 +353,28 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
         ),
         
         // Add to playlist button
-        SizedBox(
-          width: 40,
-          child: Material(
-            color: Colors.transparent,
-            child: InkWell(
-              onTap: () {
-                showDialog(
-                  context: context,
-                  builder: (context) => AddToPlaylistDialog(videoId: video.id),
-                );
-              },
+        Container(
+          margin: EdgeInsets.only(bottom: isVideoOwner ? 8 : 0),
+          child: SizedBox(
+            width: 40,
+            child: Material(
+              color: AppColors.background.withOpacity(0.5),
               borderRadius: BorderRadius.circular(12),
-              child: Container(
-                margin: EdgeInsets.only(bottom: isVideoOwner ? 8 : 0),
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                decoration: BoxDecoration(
-                  color: AppColors.background.withOpacity(0.5),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Icon(
-                  Icons.playlist_add,
-                  color: AppColors.textPrimary,
-                  size: 24,
+              child: InkWell(
+                onTap: () {
+                  showDialog(
+                    context: context,
+                    builder: (context) => AddToPlaylistDialog(videoId: video.id),
+                  );
+                },
+                borderRadius: BorderRadius.circular(12),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  child: Icon(
+                    Icons.playlist_add,
+                    color: AppColors.textPrimary,
+                    size: 24,
+                  ),
                 ),
               ),
             ),
@@ -348,16 +386,13 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
           SizedBox(
             width: 40,
             child: Material(
-              color: Colors.transparent,
+              color: AppColors.background.withOpacity(0.5),
+              borderRadius: BorderRadius.circular(12),
               child: InkWell(
                 onTap: () => _deleteVideo(video),
                 borderRadius: BorderRadius.circular(12),
-                child: Container(
+                child: Padding(
                   padding: const EdgeInsets.symmetric(vertical: 8),
-                  decoration: BoxDecoration(
-                    color: AppColors.background.withOpacity(0.5),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
                   child: Icon(
                     Icons.delete_outline,
                     color: AppColors.error,
@@ -680,50 +715,7 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
                                 ),
                                 const SizedBox(width: 16), // Space between title card and buttons
                                 // Column of buttons
-                                Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    // Uploader profile
-                                    GestureDetector(
-                                      onTap: () {
-                                        Navigator.push(
-                                          context,
-                                          MaterialPageRoute(
-                                            builder: (context) => ProfileScreen(userId: video.creatorId),
-                                          ),
-                                        );
-                                      },
-                                      child: StreamBuilder<DocumentSnapshot>(
-                                        stream: FirebaseFirestore.instance
-                                            .collection('users')
-                                            .doc(video.creatorId)
-                                            .snapshots(),
-                                        builder: (context, snapshot) {
-                                          String? photoUrl;
-                                          if (snapshot.hasData && snapshot.data!.exists) {
-                                            final userData = snapshot.data!.data() as Map<String, dynamic>;
-                                            photoUrl = userData['photoUrl'] as String?;
-                                          }
-                                          
-                                          return CircleAvatar(
-                                            radius: 20,
-                                            backgroundColor: AppColors.accent,
-                                            backgroundImage: photoUrl != null ? NetworkImage(photoUrl) : null,
-                                            child: photoUrl == null ? Text(
-                                              video.creatorUsername[0].toUpperCase(),
-                                              style: TextStyle(
-                                                color: AppColors.background,
-                                                fontWeight: FontWeight.bold,
-                                              ),
-                                            ) : null,
-                                          );
-                                        },
-                                      ),
-                                    ),
-                                    const SizedBox(height: 8),
-                                    _buildVideoActions(video),
-                                  ],
-                                ),
+                                _buildVideoActions(video),
                               ],
                             ),
                           ),
