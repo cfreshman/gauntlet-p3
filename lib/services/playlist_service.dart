@@ -126,35 +126,19 @@ class PlaylistService {
 
   // Get videos in a playlist
   Future<List<Video>> getPlaylistVideos(String playlistId) async {
-    final playlistDoc = await _firestore.collection('playlists').doc(playlistId).get();
+    final playlist = await getPlaylist(playlistId);
+    if (playlist == null) return [];
     
-    if (!playlistDoc.exists) throw Exception('Playlist not found');
-    
-    final videoIds = List<String>.from(playlistDoc.data()!['videoIds'] ?? []);
-    if (videoIds.isEmpty) return [];
-
-    final videoDocs = await Future.wait(
-      videoIds.map((id) => _firestore.collection('videos').doc(id).get())
+    final videos = await Future.wait(
+      playlist.videoIds.map((id) => 
+        _firestore.collection('videos').doc(id).get()
+      )
     );
-
-    // Filter out non-existent videos and get their IDs
-    final existingVideos = videoDocs.where((doc) => doc.exists).toList();
-    final existingIds = existingVideos.map((doc) => doc.id).toList();
     
-    // If we found deleted videos, update the playlist
-    if (existingIds.length != videoIds.length) {
-      await _firestore.collection('playlists').doc(playlistId).update({
-        'videoIds': existingIds,
-        'updatedAt': FieldValue.serverTimestamp(),
-        // Update thumbnail if first video was deleted
-        if (videoIds.isNotEmpty && videoIds.first != existingIds.first) 
-          'firstVideoThumbnail': existingVideos.isNotEmpty 
-              ? existingVideos.first.data()!['thumbnailUrl'] 
-              : FieldValue.delete(),
-      });
-    }
-
-    return existingVideos.map((doc) => Video.fromFirestore(doc)).toList();
+    return videos
+      .where((doc) => doc.exists)
+      .map((doc) => Video.fromFirestore(doc))
+      .toList();
   }
 
   // Update playlist name
@@ -256,5 +240,11 @@ class PlaylistService {
 
           return existingVideos.map((doc) => Video.fromFirestore(doc)).toList();
         });
+  }
+
+  Future<Playlist?> getPlaylist(String playlistId) async {
+    final doc = await _firestore.collection('playlists').doc(playlistId).get();
+    if (!doc.exists) return null;
+    return Playlist.fromFirestore(doc);
   }
 } 

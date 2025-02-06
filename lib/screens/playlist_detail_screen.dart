@@ -10,6 +10,7 @@ import '../extensions/string_extensions.dart';
 import 'video_feed_screen.dart';
 import '../services/auth_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../widgets/playlist_video_list.dart';
 
 class PlaylistDetailScreen extends StatefulWidget {
   final String playlistId;
@@ -29,7 +30,6 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
   bool _isEditing = false;
   final _auth = AuthService();
   final _firestore = FirebaseFirestore.instance;
-  List<String> _currentVideoOrder = [];
 
   @override
   void dispose() {
@@ -124,37 +124,10 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
     }
   }
 
-  void _handleReorder(int oldIndex, int newIndex, List<Video> videos, Playlist playlist, bool isOwner) {
-    if (!isOwner) return;
-    if (oldIndex < newIndex) {
-      newIndex -= 1;
-    }
-
-    setState(() {
-      final newOrder = List<String>.from(_currentVideoOrder.isEmpty ? playlist.videoIds : _currentVideoOrder);
-      final item = newOrder.removeAt(oldIndex);
-      newOrder.insert(newIndex, item);
-      _currentVideoOrder = newOrder;
-    });
-
-    _playlistService.reorderVideos(playlist.id, _currentVideoOrder).catchError((e) {
-      setState(() {
-        _currentVideoOrder = List<String>.from(playlist.videoIds);
-      });
-      
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('failed to update playlist'.toLowerCase()),
-          backgroundColor: Colors.red,
-        ));
-      }
-    });
-  }
-
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder<Playlist?>(
-      stream: _playlistService.getPlaylistById(widget.playlistId),
+    return FutureBuilder<Playlist?>(
+      future: _playlistService.getPlaylist(widget.playlistId),
       builder: (context, snapshot) {
         if (!snapshot.hasData || snapshot.hasError) {
           return const Center(child: LoadingIndicator());
@@ -162,10 +135,6 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
 
         final playlist = snapshot.data!;
         final isCurrentUserPlaylist = _auth.currentUser?.uid == playlist.userId;
-
-        if (_currentVideoOrder.isEmpty) {
-          _currentVideoOrder = List<String>.from(playlist.videoIds);
-        }
 
         return Scaffold(
           backgroundColor: AppColors.background,
@@ -313,19 +282,16 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
 
                 // Right side - Video list
                 Expanded(
-                  child: StreamBuilder<List<Video>>(
-                    stream: _playlistService.getPlaylistVideosStream(playlist.id),
+                  child: FutureBuilder<List<Video>>(
+                    future: _playlistService.getPlaylistVideos(widget.playlistId),
                     builder: (context, videoSnapshot) {
                       if (!videoSnapshot.hasData) {
                         return const Center(child: LoadingIndicator());
                       }
 
                       final videos = videoSnapshot.data!;
-                      final sortedVideos = List<Video>.from(videos)
-                        ..sort((a, b) => _currentVideoOrder.indexOf(a.id)
-                            .compareTo(_currentVideoOrder.indexOf(b.id)));
 
-                      if (sortedVideos.isEmpty) {
+                      if (videos.isEmpty) {
                         return Center(
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
@@ -345,77 +311,11 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                         );
                       }
 
-                      return ReorderableListView.builder(
-                        padding: const EdgeInsets.all(16),
-                        itemCount: sortedVideos.length,
-                        buildDefaultDragHandles: false,
-                        proxyDecorator: (child, index, animation) => child,
-                        onReorderStart: (_) {
-                          if (!isCurrentUserPlaylist) return;
-                        },
-                        onReorder: (oldIndex, newIndex) => 
-                            _handleReorder(oldIndex, newIndex, sortedVideos, playlist, isCurrentUserPlaylist),
-                        itemBuilder: (context, index) {
-                          final video = sortedVideos[index];
-                          return Container(
-                            key: ValueKey('dismissible-${video.id}'),
-                            margin: const EdgeInsets.only(bottom: 16),
-                            child: Dismissible(
-                              key: ValueKey('dismissible-${video.id}'),
-                              direction: isCurrentUserPlaylist 
-                                  ? DismissDirection.endToStart 
-                                  : DismissDirection.none,
-                              background: Container(
-                                alignment: Alignment.centerRight,
-                                padding: const EdgeInsets.only(right: 16),
-                                decoration: BoxDecoration(
-                                  color: Colors.red,
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: const Icon(
-                                  Icons.delete_outline,
-                                  color: Colors.white,
-                                ),
-                              ),
-                              onDismissed: (_) => _removeVideo(playlist.id, video.id),
-                              child: Material(
-                                color: Colors.transparent,
-                                child: Stack(
-                                  children: [
-                                    SizedBox(
-                                      width: double.infinity,
-                                      height: 180,
-                                      child: VideoPreview(
-                                        video: video,
-                                        showTitle: true,
-                                        showCreator: true,
-                                        videos: sortedVideos,
-                                        currentIndex: index,
-                                        showTimeAgo: true,
-                                        showDuration: true,
-                                      ),
-                                    ),
-                                    if (isCurrentUserPlaylist)
-                                      Positioned(
-                                        right: 8,
-                                        top: 0,
-                                        bottom: 0,
-                                        child: Center(
-                                          child: ReorderableDragStartListener(
-                                            index: index,
-                                            child: Icon(
-                                              Icons.drag_handle,
-                                              color: AppColors.textPrimary,
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          );
-                        },
+                      return PlaylistVideoList(
+                        videos: videos,
+                        initialOrder: playlist.videoIds,
+                        playlistId: playlist.id,
+                        isOwner: isCurrentUserPlaylist,
                       );
                     },
                   ),

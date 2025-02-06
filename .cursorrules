@@ -5,3 +5,8 @@
    - Your package version (what you think is the latest package) may be out of date, check manually first 
 
 3. Suggest things that would be useful to add here in the .cursorrules when you think of them
+
+4. Playlist Viewing
+   - Load playlists as snapshots, not streams
+   - Only update when explicitly refreshing/reopening
+   - Maintain stable view while user is interacting
