@@ -220,4 +220,41 @@ class PlaylistService {
         .snapshots()
         .map((doc) => doc.exists ? Playlist.fromFirestore(doc) : null);
   }
+
+  // Get videos in a playlist as a stream
+  Stream<List<Video>> getPlaylistVideosStream(String playlistId) {
+    return _firestore
+        .collection('playlists')
+        .doc(playlistId)
+        .snapshots()
+        .asyncMap((playlistDoc) async {
+          if (!playlistDoc.exists) throw Exception('Playlist not found');
+          
+          final videoIds = List<String>.from(playlistDoc.data()!['videoIds'] ?? []);
+          if (videoIds.isEmpty) return [];
+
+          final videoDocs = await Future.wait(
+            videoIds.map((id) => _firestore.collection('videos').doc(id).get())
+          );
+
+          // Filter out non-existent videos and get their IDs
+          final existingVideos = videoDocs.where((doc) => doc.exists).toList();
+          final existingIds = existingVideos.map((doc) => doc.id).toList();
+          
+          // If we found deleted videos, update the playlist
+          if (existingIds.length != videoIds.length) {
+            await _firestore.collection('playlists').doc(playlistId).update({
+              'videoIds': existingIds,
+              'updatedAt': FieldValue.serverTimestamp(),
+              // Update thumbnail if first video was deleted
+              if (videoIds.isNotEmpty && videoIds.first != existingIds.first) 
+                'firstVideoThumbnail': existingVideos.isNotEmpty 
+                    ? existingVideos.first.data()!['thumbnailUrl'] 
+                    : FieldValue.delete(),
+            });
+          }
+
+          return existingVideos.map((doc) => Video.fromFirestore(doc)).toList();
+        });
+  }
 } 

@@ -152,21 +152,7 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                     const SizedBox(height: 16),
                     Text(
                       'playlist not found'.toLowerCase(),
-                      style: TextStyle(
-                        color: AppColors.textPrimary,
-                        fontSize: 18,
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-                    TextButton(
-                      onPressed: () => Navigator.pop(context),
-                      child: Text(
-                        'go back'.toLowerCase(),
-                        style: TextStyle(
-                          color: AppColors.accent,
-                          fontSize: 16,
-                        ),
-                      ),
+                      style: TextStyle(color: AppColors.textSecondary),
                     ),
                   ],
                 ),
@@ -174,6 +160,7 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
             }
 
             return Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // Left side - Playlist info
                 Container(
@@ -217,29 +204,28 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                       
                       // Playlist name
                       if (_isEditing) ...[
-                        Row(
-                          children: [
-                            Expanded(
-                              child: TextField(
-                                controller: _nameController,
-                                autofocus: true,
-                                style: TextStyle(color: AppColors.textPrimary),
-                                decoration: InputDecoration(
-                                  hintText: 'playlist name'.toLowerCase(),
-                                  hintStyle: TextStyle(color: AppColors.textSecondary),
-                                  border: InputBorder.none,
-                                ),
-                              ),
+                        TextField(
+                          controller: _nameController,
+                          style: TextStyle(
+                            color: AppColors.textPrimary,
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          decoration: InputDecoration(
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: BorderSide(color: AppColors.accent),
                             ),
-                            IconButton(
-                              icon: Icon(Icons.check, color: AppColors.accent),
-                              onPressed: () => _updatePlaylistName(playlist.id, _nameController.text),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: BorderSide(color: AppColors.accent, width: 2),
                             ),
-                            IconButton(
-                              icon: Icon(Icons.close, color: AppColors.textSecondary),
-                              onPressed: () => setState(() => _isEditing = false),
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 12,
                             ),
-                          ],
+                          ),
+                          onSubmitted: (value) => _updatePlaylistName(playlist.id, value),
                         ),
                       ] else ...[
                         Row(
@@ -277,16 +263,19 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                       const SizedBox(height: 24),
                       
                       // Delete button
-                      OutlinedButton.icon(
-                        onPressed: () => _deletePlaylist(playlist.id),
-                        icon: Icon(Icons.delete_outline, color: Colors.red),
-                        label: Text(
-                          'delete playlist'.toLowerCase(),
-                          style: const TextStyle(color: Colors.red),
-                        ),
-                        style: OutlinedButton.styleFrom(
-                          side: const BorderSide(color: Colors.red),
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      SizedBox(
+                        width: double.infinity,
+                        child: TextButton(
+                          style: TextButton.styleFrom(
+                            foregroundColor: Colors.red,
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              side: const BorderSide(color: Colors.red),
+                            ),
+                          ),
+                          onPressed: () => _deletePlaylist(playlist.id),
+                          child: Text('delete playlist'.toLowerCase()),
                         ),
                       ),
                     ],
@@ -295,93 +284,89 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
 
                 // Right side - Video list
                 Expanded(
-                  child: FutureBuilder<List<Video>>(
-                    future: _playlistService.getPlaylistVideos(playlist.id),
-                    builder: (context, snapshot) {
-                      if (snapshot.hasError) {
-                        return Center(
-                          child: Text(
-                            'error loading videos'.toLowerCase(),
-                            style: TextStyle(color: Colors.red),
-                          ),
-                        );
-                      }
-
-                      if (!snapshot.hasData) {
-                        return const Center(child: LoadingIndicator());
-                      }
-
-                      final videos = snapshot.data!;
-                      if (videos.isEmpty) {
-                        return Center(
-                          child: Text(
-                            'no videos in playlist'.toLowerCase(),
-                            style: TextStyle(color: AppColors.textSecondary),
-                          ),
-                        );
-                      }
-
-                      return ReorderableListView.builder(
-                        padding: const EdgeInsets.all(16),
-                        itemCount: videos.length,
-                        onReorder: (oldIndex, newIndex) async {
-                          if (oldIndex < newIndex) {
-                            newIndex -= 1;
-                          }
-
-                          try {
-                            final newOrder = List<String>.from(playlist.videoIds);
-                            final item = newOrder.removeAt(oldIndex);
-                            newOrder.insert(newIndex, item);
-
-                            await _playlistService.reorderVideos(playlist.id, newOrder);
-                            if (mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                                content: Text('playlist updated'.toLowerCase()),
-                                backgroundColor: AppColors.accent,
-                              ));
-                            }
-                          } catch (e) {
-                            if (mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                                content: Text('failed to update playlist'.toLowerCase()),
-                                backgroundColor: Colors.red,
-                              ));
-                            }
-                          }
-                        },
-                        itemBuilder: (context, index) {
-                          final video = videos[index];
-                          return Dismissible(
-                            key: ValueKey(video.id),
-                            direction: DismissDirection.endToStart,
-                            background: Container(
-                              alignment: Alignment.centerRight,
-                              padding: const EdgeInsets.only(right: 16),
-                              decoration: BoxDecoration(
-                                color: Colors.red,
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: const Icon(
-                                Icons.delete_outline,
-                                color: Colors.white,
-                              ),
-                            ),
-                            onDismissed: (_) => _removeVideo(playlist.id, video.id),
-                            child: Container(
-                              margin: const EdgeInsets.only(bottom: 16),
-                              child: VideoPreview(
-                                video: video,
-                                showTitle: true,
-                                showCreator: true,
-                                videos: videos,
-                                currentIndex: index,
-                              ),
+                  child: Container(
+                    padding: const EdgeInsets.all(16),
+                    child: StreamBuilder<List<Video>>(
+                      stream: _playlistService.getPlaylistVideosStream(playlist.id),
+                      builder: (context, snapshot) {
+                        if (snapshot.hasError) {
+                          return Center(
+                            child: Text(
+                              'error loading videos'.toLowerCase(),
+                              style: TextStyle(color: Colors.red),
                             ),
                           );
-                        },
-                      );
-                    },
+                        }
+
+                        if (!snapshot.hasData) {
+                          return const Center(child: LoadingIndicator());
+                        }
+
+                        final videos = snapshot.data!;
+                        if (videos.isEmpty) {
+                          return Center(
+                            child: Text(
+                              'no videos in playlist'.toLowerCase(),
+                              style: TextStyle(color: AppColors.textSecondary),
+                            ),
+                          );
+                        }
+
+                        return ReorderableListView.builder(
+                          itemCount: videos.length,
+                          onReorder: (oldIndex, newIndex) async {
+                            if (oldIndex < newIndex) {
+                              newIndex -= 1;
+                            }
+                            try {
+                              final newOrder = List<String>.from(playlist.videoIds);
+                              final item = newOrder.removeAt(oldIndex);
+                              newOrder.insert(newIndex, item);
+                              await _playlistService.reorderVideos(playlist.id, newOrder);
+                            } catch (e) {
+                              if (mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                                  content: Text('failed to update playlist'.toLowerCase()),
+                                  backgroundColor: Colors.red,
+                                ));
+                              }
+                            }
+                          },
+                          itemBuilder: (context, index) {
+                            final video = videos[index];
+                            return Dismissible(
+                              key: ValueKey(video.id),
+                              direction: DismissDirection.endToStart,
+                              background: Container(
+                                alignment: Alignment.centerRight,
+                                padding: const EdgeInsets.only(right: 16),
+                                decoration: BoxDecoration(
+                                  color: Colors.red,
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: const Icon(
+                                  Icons.delete_outline,
+                                  color: Colors.white,
+                                ),
+                              ),
+                              onDismissed: (_) => _removeVideo(playlist.id, video.id),
+                              child: Container(
+                                margin: const EdgeInsets.only(bottom: 16),
+                                child: VideoPreview(
+                                  video: video,
+                                  showTitle: true,
+                                  showCreator: true,
+                                  videos: videos,
+                                  currentIndex: index,
+                                  showTimeAgo: true,
+                                  showDuration: true,
+                                ),
+                              ),
+                            );
+                          },
+                        );
+                      },
+                    ),
                   ),
                 ),
               ],

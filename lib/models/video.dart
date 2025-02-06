@@ -13,6 +13,7 @@ class Video {
   final int likeCount;
   final int commentCount;
   final int viewCount;
+  final Duration? duration;
 
   Video({
     required this.id,
@@ -27,6 +28,7 @@ class Video {
     this.likeCount = 0,
     this.commentCount = 0,
     this.viewCount = 0,
+    this.duration,
   });
 
   // Create from Firestore document
@@ -45,6 +47,7 @@ class Video {
       likeCount: data['likeCount'] ?? 0,
       commentCount: data['commentCount'] ?? 0,
       viewCount: data['viewCount'] ?? 0,
+      duration: data['durationMs'] != null ? Duration(milliseconds: data['durationMs']) : null,
     );
   }
 
@@ -62,6 +65,7 @@ class Video {
       'likeCount': likeCount,
       'commentCount': commentCount,
       'viewCount': viewCount,
+      if (duration != null) 'durationMs': duration!.inMilliseconds,
     };
   }
 } 

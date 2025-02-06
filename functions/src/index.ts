@@ -24,35 +24,43 @@ admin.initializeApp();
 //   response.send("Hello from Firebase!");
 // });
 
-export const generateThumbnail = functions.storage
-  .onObjectFinalized(async (event) => {
-    const filePath = event.data.name;
-    const contentType = event.data.contentType;
-
-    // Log the event data for debugging
-    console.log("Event data:", {
-      filePath,
-      contentType,
-      bucket: event.data.bucket,
-      metageneration: event.data.metageneration
-    });
-
-    // Only process video files
-    if (!contentType?.startsWith("video/")) {
-      console.log("Not a video, skipping thumbnail generation. Content type:", contentType);
-      return;
+export const generateThumbnail = functions.https
+  .onCall(async (request: functions.https.CallableRequest<{ filePath: string }>, context) => {
+    const { filePath } = request.data;
+    
+    if (!filePath) {
+      throw new functions.https.HttpsError('invalid-argument', 'File path is required');
     }
 
-    const fileName = path.basename(filePath);
-    const bucket = admin.storage().bucket(event.data.bucket);
-    const tempFilePath = path.join(os.tmpdir(), fileName);
-    const thumbnailFileName = `thumbnails/${path.parse(fileName).name}.jpg`;
+    const bucket = admin.storage().bucket();
+    const tempFilePath = path.join(os.tmpdir(), path.basename(filePath));
+    const thumbnailFileName = `thumbnails/${path.parse(filePath).name}.jpg`;
     const thumbnailPath = path.join(os.tmpdir(), thumbnailFileName);
 
     try {
       // Download video file
       await bucket.file(filePath).download({destination: tempFilePath});
       console.log("Video downloaded to:", tempFilePath);
+
+      // Get video duration using ffmpeg
+      let durationMs = 0;
+      await new Promise((resolve, reject) => {
+        ffmpeg.ffprobe(tempFilePath, (err, metadata: { format: { duration?: number } }) => {
+          if (err) {
+            console.error("FFprobe error:", err);
+            reject(err);
+            return;
+          }
+          if (metadata.format.duration === undefined) {
+            console.warn("Could not determine video duration");
+            resolve(null);
+            return;
+          }
+          durationMs = Math.round(metadata.format.duration * 1000);
+          resolve(null);
+        });
+      });
+      console.log("Video duration (ms):", durationMs);
 
       // Generate thumbnail using cloud environment's ffmpeg
       await new Promise((resolve, reject) => {
@@ -80,53 +88,18 @@ export const generateThumbnail = functions.storage
       });
       console.log("Thumbnail uploaded to:", thumbnailFileName);
 
-      // Get thumbnail URL
-      const thumbnailFile = bucket.file(thumbnailFileName);
-      const [thumbnailUrl] = await thumbnailFile.getSignedUrl({
-        action: "read",
-        expires: "03-01-2500", // Far future expiration
-      });
+      // Get the direct thumbnail URL
+      const thumbnailUrl = `https://firebasestorage.googleapis.com/v0/b/${bucket.name}/o/${encodeURIComponent(thumbnailFileName)}?alt=media`;
 
-      // Get the full video URL to match against Firestore
-      const videoUrl = `https://firebasestorage.googleapis.com/v0/b/${event.data.bucket}/o/videos%2F${encodeURIComponent(fileName)}?alt=media`;
-      console.log("Looking for video document with URL:", videoUrl);
-
-      // Find the video document using the full video URL
-      const videoDoc = await admin.firestore()
-        .collection("videos")
-        .where("videoUrl", "==", videoUrl)
-        .limit(1)
-        .get();
-
-      if (!videoDoc.empty) {
-        await videoDoc.docs[0].ref.update({
-          thumbnailUrl: thumbnailUrl,
-        });
-        console.log("Video document updated with thumbnail URL:", thumbnailUrl);
-      } else {
-        console.log("No matching video document found for URL:", videoUrl);
-        
-        // Fallback: try searching by filename
-        const fallbackDoc = await admin.firestore()
-          .collection("videos")
-          .where("videoUrl", ">=", fileName)
-          .where("videoUrl", "<=", fileName + "\uf8ff")
-          .limit(1)
-          .get();
-          
-        if (!fallbackDoc.empty) {
-          await fallbackDoc.docs[0].ref.update({
-            thumbnailUrl: thumbnailUrl,
-          });
-          console.log("Video document updated with thumbnail URL (fallback):", thumbnailUrl);
-        } else {
-          console.log("No matching video document found with fallback search");
-        }
-      }
+      // Return the metadata
+      return {
+        thumbnailUrl,
+        durationMs,
+      };
 
     } catch (error) {
       console.error("Error generating thumbnail:", error);
-      throw error;
+      throw new functions.https.HttpsError('internal', 'Error generating thumbnail: ' + error);
     } finally {
       // Cleanup
       try {

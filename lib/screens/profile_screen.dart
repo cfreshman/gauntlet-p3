@@ -250,7 +250,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   children: [
                     // Toggle bar
                     Container(
-                      padding: const EdgeInsets.all(16),
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                       decoration: BoxDecoration(
                         border: Border(
                           bottom: BorderSide(
@@ -267,7 +267,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               isSelected: _showVideos,
                               onPressed: () => setState(() => _showVideos = true),
                             ),
-                            const SizedBox(width: 16),
+                            const SizedBox(width: 8),
                           ],
                           _buildToggleButton(
                             title: 'Playlists'.lowercase,
@@ -307,10 +307,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return TextButton(
       onPressed: onPressed,
       style: TextButton.styleFrom(
-        backgroundColor: isSelected
-            ? AppColors.accent.withOpacity(0.1)
-            : Colors.transparent,
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+        backgroundColor: isSelected ? AppColors.accent : Colors.transparent,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(8),
         ),
@@ -318,8 +316,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
       child: Text(
         title,
         style: TextStyle(
-          color: isSelected ? AppColors.accent : AppColors.textPrimary,
-          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+          color: isSelected ? AppColors.background : AppColors.textPrimary,
+          fontWeight: FontWeight.bold,
         ),
       ),
     );
@@ -336,20 +334,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
 
     return ListView.builder(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       itemCount: _userVideos.length,
       itemBuilder: (context, index) {
         final video = _userVideos[index];
         return Padding(
-          padding: const EdgeInsets.only(bottom: 16),
+          padding: const EdgeInsets.only(bottom: 8),
           child: SizedBox(
-            height: 180,
+            height: 160,
             child: VideoPreview(
               video: video,
               showTitle: true,
               showCreator: false,
               videos: _userVideos,
               currentIndex: index,
+              showTimeAgo: true,
+              showDuration: true,
             ),
           ),
         );
@@ -388,13 +388,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
         }
 
         return ListView.builder(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           itemCount: playlists.length,
           itemBuilder: (context, index) {
             final playlist = playlists[index];
             return Container(
-              height: 100,
-              margin: const EdgeInsets.only(bottom: 16),
+              height: 80,
+              margin: const EdgeInsets.only(bottom: 8),
               decoration: BoxDecoration(
                 color: AppColors.background.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(8),
