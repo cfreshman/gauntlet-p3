@@ -228,32 +228,31 @@ class _VideoViewerState extends State<VideoViewer> {
               left: 0,
               right: 0,
               top: widget.isInFeed ? 0 : MediaQuery.of(context).padding.top,
-              child: Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  onTapDown: (details) {
-                    final box = context.findRenderObject() as RenderBox;
-                    final tapPos = details.localPosition;
-                    final relative = tapPos.dx / box.size.width;
-                    _controller.seekTo(
-                      Duration(milliseconds: (_controller.value.duration.inMilliseconds * relative).toInt()),
-                    );
-                  },
-                  child: Container(
-                    height: 20,
-                    padding: const EdgeInsets.only(bottom: 16),
-                    child: VideoProgressIndicator(
-                      _controller,
-                      allowScrubbing: true,
-                      colors: VideoProgressColors(
-                        playedColor: AppColors.accent,
-                        bufferedColor: AppColors.accent.withOpacity(0.3),
-                        backgroundColor: AppColors.background.withOpacity(0.5),
-                      ),
-                      padding: EdgeInsets.zero,
+              child: Stack(
+                children: [
+                  // Larger transparent scrubber for better touch target
+                  VideoProgressIndicator(
+                    _controller,
+                    allowScrubbing: true,
+                    colors: VideoProgressColors(
+                      playedColor: Colors.transparent,
+                      bufferedColor: Colors.transparent,
+                      backgroundColor: Colors.transparent,
                     ),
+                    padding: const EdgeInsets.symmetric(vertical: 20),
                   ),
-                ),
+                  // Visual scrubber
+                  VideoProgressIndicator(
+                    _controller,
+                    allowScrubbing: true,
+                    colors: VideoProgressColors(
+                      playedColor: AppColors.accent,
+                      bufferedColor: AppColors.accent.withOpacity(0.3),
+                      backgroundColor: AppColors.background.withOpacity(0.5),
+                    ),
+                    padding: EdgeInsets.zero,
+                  ),
+                ],
               ),
             ),
         ],
