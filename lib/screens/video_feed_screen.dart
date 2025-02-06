@@ -13,6 +13,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../widgets/add_to_playlist_dialog.dart';
 import '../screens/profile_screen.dart';
 import '../screens/home_screen.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class VideoFeedScreen extends StatefulWidget {
   final List<Video>? videos;  // Optional list of videos to show instead of feed
@@ -537,8 +538,7 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
                                           children: [
                                             Text(
                                               video.title.toLowerCase(),
-                                              style: TextStyle(
-                                                fontFamily: 'Menlo',
+                                              style: GoogleFonts.jetBrainsMono(
                                                 color: AppColors.textPrimary,
                                                 fontSize: 16,
                                                 fontWeight: FontWeight.bold,
@@ -620,8 +620,7 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
                                         ),
                                         child: Text(
                                           video.title.toLowerCase(),
-                                          style: TextStyle(
-                                            fontFamily: 'Menlo',
+                                          style: GoogleFonts.jetBrainsMono(
                                             color: AppColors.textPrimary,
                                             fontSize: 14,
                                             fontWeight: FontWeight.bold,

@@ -232,6 +232,8 @@ class _AuthScreenState extends State<AuthScreen> with SingleTickerProviderStateM
                     textInputAction: TextInputAction.next,
                     decoration: InputDecoration(
                       labelText: 'username'.toLowerCase(),
+                      labelStyle: TextStyle(color: AppColors.textPrimary),
+                      hintStyle: TextStyle(color: AppColors.textSecondary),
                       prefixIcon: Icon(Icons.person_outline, color: AppColors.textSecondary),
                     ),
                     onSaved: (value) => _username = value ?? '',
@@ -247,6 +249,7 @@ class _AuthScreenState extends State<AuthScreen> with SingleTickerProviderStateM
                     onFieldSubmitted: (_) {
                       FocusScope.of(context).requestFocus(_emailFocusNode);
                     },
+                    style: TextStyle(color: AppColors.accent),
                   ),
                   const SizedBox(height: 16),
                 ],
@@ -256,6 +259,8 @@ class _AuthScreenState extends State<AuthScreen> with SingleTickerProviderStateM
                   textInputAction: TextInputAction.next,
                   decoration: InputDecoration(
                     labelText: 'email'.toLowerCase(),
+                    labelStyle: TextStyle(color: AppColors.textPrimary),
+                    hintStyle: TextStyle(color: AppColors.textSecondary),
                     prefixIcon: Icon(Icons.email_outlined, color: AppColors.textSecondary),
                   ),
                   onSaved: (value) => _email = value ?? '',
@@ -271,6 +276,7 @@ class _AuthScreenState extends State<AuthScreen> with SingleTickerProviderStateM
                   onFieldSubmitted: (_) {
                     FocusScope.of(context).requestFocus(_passwordFocusNode);
                   },
+                  style: TextStyle(color: AppColors.accent),
                 ),
                 const SizedBox(height: 16),
                 TextFormField(
@@ -279,6 +285,8 @@ class _AuthScreenState extends State<AuthScreen> with SingleTickerProviderStateM
                   textInputAction: TextInputAction.done,
                   decoration: InputDecoration(
                     labelText: 'password'.toLowerCase(),
+                    labelStyle: TextStyle(color: AppColors.textPrimary),
+                    hintStyle: TextStyle(color: AppColors.textSecondary),
                     prefixIcon: Icon(Icons.lock_outline, color: AppColors.textSecondary),
                     suffixIcon: IconButton(
                       icon: Icon(
@@ -303,6 +311,7 @@ class _AuthScreenState extends State<AuthScreen> with SingleTickerProviderStateM
                     return null;
                   },
                   onFieldSubmitted: (_) => _submit(),
+                  style: TextStyle(color: AppColors.accent),
                 ),
                 if (_errorMessage != null) ...[
                   const SizedBox(height: 16),

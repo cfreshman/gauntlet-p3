@@ -4,6 +4,7 @@ import '../theme/colors.dart';
 import '../widgets/video_viewer.dart';
 import '../widgets/comment_list.dart';
 import '../services/video_service.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class VideoScreen extends StatefulWidget {
   final Video video;
@@ -40,9 +41,8 @@ class _VideoScreenState extends State<VideoScreen> {
         ),
         title: Text(
           widget.video.title.toLowerCase(),
-          style: TextStyle(
+          style: GoogleFonts.jetBrainsMono(
             color: AppColors.textPrimary,
-            fontSize: 16,
             fontWeight: FontWeight.bold,
           ),
         ),
@@ -73,9 +73,8 @@ class _VideoScreenState extends State<VideoScreen> {
                     children: [
                       Text(
                         widget.video.description.toLowerCase(),
-                        style: TextStyle(
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                           color: AppColors.textSecondary,
-                          fontSize: 14,
                         ),
                       ),
                       const SizedBox(height: 12),

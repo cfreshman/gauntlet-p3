@@ -7,6 +7,7 @@ import 'screens/home_screen.dart';
 import 'firebase_options.dart';
 import 'theme/colors.dart';
 import 'widgets/loading_indicator.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -48,7 +49,7 @@ class MainApp extends StatelessWidget {
       theme: ThemeData(
         useMaterial3: true,
         brightness: Brightness.dark,
-        fontFamily: 'Menlo',
+        textTheme: GoogleFonts.jetBrainsMonoTextTheme(),
         colorScheme: ColorScheme.dark(
           background: AppColors.background,
           primary: AppColors.accent,
@@ -68,56 +69,17 @@ class MainApp extends StatelessWidget {
             borderRadius: BorderRadius.circular(12),
           ),
         ),
-        textTheme: TextTheme(
-          displayLarge: TextStyle(
-            fontFamily: 'Menlo',
-            color: AppColors.textPrimary,
-            fontSize: 32,
-            fontWeight: FontWeight.bold,
-          ),
-          displayMedium: TextStyle(
-            fontFamily: 'Menlo',
-            color: AppColors.textPrimary,
-            fontSize: 28,
-            fontWeight: FontWeight.bold,
-          ),
-          bodyLarge: TextStyle(
-            fontFamily: 'Menlo',
-            color: AppColors.textPrimary,
-            fontSize: 16,
-            height: 1.5,
-          ),
-          bodyMedium: TextStyle(
-            fontFamily: 'Menlo',
-            color: AppColors.textPrimary,
-            fontSize: 14,
-            height: 1.5,
-          ),
-          titleLarge: TextStyle(
-            fontFamily: 'Menlo',
-            color: AppColors.textPrimary,
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-            height: 1.5,
-          ),
-          labelLarge: TextStyle(
-            fontFamily: 'Menlo',
-            fontSize: 14,
-            height: 1.5,
-            letterSpacing: 0.5,
-          ),
-        ),
         inputDecorationTheme: InputDecorationTheme(
           filled: true,
           fillColor: AppColors.inputBackground,
           labelStyle: TextStyle(
             fontFamily: 'Menlo',
-            color: AppColors.textSecondary,
+            color: AppColors.textPrimary,
             fontSize: 14,
           ),
           hintStyle: TextStyle(
             fontFamily: 'Menlo',
-            color: AppColors.textSecondary.withOpacity(0.7),
+            color: AppColors.textPrimary.withOpacity(0.7),
             fontSize: 14,
           ),
           prefixIconColor: AppColors.textSecondary,
