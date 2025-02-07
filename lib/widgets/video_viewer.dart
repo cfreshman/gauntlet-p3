@@ -7,6 +7,8 @@ import '../theme/colors.dart';
 import 'add_to_playlist_dialog.dart';
 import '../screens/profile_screen.dart';
 import 'dart:async';
+import 'package:provider/provider.dart';
+import '../providers/audio_state_provider.dart';
 
 class VideoViewer extends StatefulWidget {
   final Video video;
@@ -56,14 +58,14 @@ class _VideoViewerState extends State<VideoViewer> {
       _controller.addListener(_handleVideoProgress);
       
       if (widget.autoPlay) {
-        // Only start muted on web
         if (kIsWeb) {
-          await _controller.setVolume(0.0);
+          // Check AudioStateProvider for mute state
+          final audioState = context.read<AudioStateProvider>();
+          await _controller.setVolume(audioState.isMuted ? 0.0 : 1.0);
         }
         await _controller.play();
       }
       
-      // Loop only if in feed
       await _controller.setLooping(widget.isInFeed);
       
       if (mounted) setState(() {});
@@ -125,13 +127,9 @@ class _VideoViewerState extends State<VideoViewer> {
 
   void _handleDoubleTap() {
     _singleTapTimer?.cancel();
-    setState(() {
-      if (_controller.value.volume > 0) {
-        _controller.setVolume(0.0);
-      } else {
-        _controller.setVolume(1.0);
-      }
-    });
+    final audioState = context.read<AudioStateProvider>();
+    audioState.toggleMute();
+    _controller.setVolume(audioState.isMuted ? 0.0 : 1.0);
   }
 
   @override
@@ -189,38 +187,43 @@ class _VideoViewerState extends State<VideoViewer> {
             ),
           
           // Volume indicator
-          if (_controller.value.volume == 0)
-            Positioned(
-              top: 16,
-              right: 16,
-              child: Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: AppColors.background.withOpacity(0.7),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      Icons.volume_off,
-                      color: AppColors.textPrimary,
-                      size: 20,
-                    ),
-                    if (kIsWeb) ...[
-                      const SizedBox(width: 8),
-                      Text(
-                        'double tap to unmute',
-                        style: TextStyle(
-                          color: AppColors.textPrimary,
-                          fontSize: 12,
-                        ),
+          Consumer<AudioStateProvider>(
+            builder: (context, audioState, child) {
+              if (!audioState.isMuted) return const SizedBox.shrink();
+              
+              return Positioned(
+                top: 16,
+                right: 16,
+                child: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: AppColors.background.withOpacity(0.7),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.volume_off,
+                        color: AppColors.textPrimary,
+                        size: 20,
                       ),
+                      if (kIsWeb) ...[
+                        const SizedBox(width: 8),
+                        Text(
+                          'double tap to unmute',
+                          style: TextStyle(
+                            color: AppColors.textPrimary,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
                     ],
-                  ],
+                  ),
                 ),
-              ),
-            ),
+              );
+            },
+          ),
 
           // Progress bar at top
           if (widget.showControls)

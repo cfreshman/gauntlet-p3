@@ -8,6 +8,8 @@ import 'firebase_options.dart';
 import 'theme/colors.dart';
 import 'widgets/loading_indicator.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:provider/provider.dart';
+import 'providers/audio_state_provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -35,7 +37,14 @@ void main() async {
     overlays: [SystemUiOverlay.top],
   );
   
-  runApp(const MainApp());
+  runApp(
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => AudioStateProvider()),
+      ],
+      child: const MainApp(),
+    ),
+  );
 }
 
 class MainApp extends StatelessWidget {
