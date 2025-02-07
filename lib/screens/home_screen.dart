@@ -21,7 +21,11 @@ class HomeScreen extends StatefulWidget {
   });
 
   static void navigateToSearch(BuildContext context, String tag) {
-    context.go('/search?tags=$tag');
+    final shell = context.findAncestorWidgetOfExactType<StatefulNavigationShell>();
+    if (shell != null) {
+      shell.goBranch(3); // Switch to search tab
+      context.go('/search?tags=$tag');
+    }
   }
 
   static void navigateToProfile(BuildContext context, String userId) {

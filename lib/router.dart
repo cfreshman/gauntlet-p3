@@ -100,10 +100,8 @@ final router = GoRouter(
             GoRoute(
               path: '/search',
               builder: (context, state) {
-                // Only use query parameters if not navigating through nav rail
-                final fromNav = state.extra == null;
-                final query = fromNav ? null : state.uri.queryParameters['q'];
-                final tags = fromNav ? null : state.uri.queryParameters['tags']?.split(',');
+                final query = state.uri.queryParameters['q'];
+                final tags = state.uri.queryParameters['tags']?.split(',');
                 return SearchScreen(initialQuery: query, initialTag: tags?.firstOrNull);
               },
             ),
