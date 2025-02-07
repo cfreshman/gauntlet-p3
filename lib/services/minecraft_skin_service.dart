@@ -1,5 +1,7 @@
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:url_launcher/url_launcher_string.dart';
 
 class MinecraftSkinService {
   static const String _mineatar = 'https://api.mineatar.io';
@@ -85,6 +87,30 @@ class MinecraftSkinService {
   Future<String> getRawSkinUrl(String username) async {
     final uuid = await _getUUID(username);
     return '$_mineatar/skin/$uuid';
+  }
+
+  // Get skin download URL
+  Future<String> getSkinDownloadUrl(String username) async {
+    final uuid = await _getUUID(username);
+    return '$_mineatar/skin/$uuid?download=true';
+  }
+
+  // Download skin using API's download parameter
+  Future<void> downloadSkin(String username) async {
+    try {
+      final downloadUrl = await getSkinDownloadUrl(username);
+      
+      if (!await canLaunchUrlString(downloadUrl)) {
+        throw Exception('Could not download skin');
+      }
+      await launchUrlString(
+        downloadUrl,
+        mode: LaunchMode.externalApplication,
+      );
+    } catch (e) {
+      print('Error downloading skin: $e');
+      rethrow;
+    }
   }
 
   // Validate Minecraft username (2-16 characters, alphanumeric and underscore)

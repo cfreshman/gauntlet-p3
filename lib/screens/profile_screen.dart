@@ -31,8 +31,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
   final _firestore = FirebaseFirestore.instance;
   final _playlistService = PlaylistService();
   final _minecraftService = MinecraftSkinService();
-  bool _showVideos = true;
-  bool _showPlaylists = false;
+  bool _showVideos = false;  // Changed to false by default
+  bool _showPlaylists = true;  // Changed to true by default
   bool _showLikes = false;
   bool _isLoading = true;
   List<Video> _userVideos = [];
@@ -85,12 +85,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
       final videos = await _videoService.getUserVideos(userId: userId);
       setState(() {
         _userVideos = videos;
+        // Only show videos tab if there are videos
         _showVideos = videos.isNotEmpty;
+        // Show playlists by default if no videos
+        _showPlaylists = !_showVideos;
         _isLoading = false;
       });
     } catch (e) {
       print('Error loading videos: $e');
-      setState(() => _isLoading = false);
+      setState(() {
+        _isLoading = false;
+        // Show playlists on error
+        _showVideos = false;
+        _showPlaylists = true;
+      });
     }
   }
 
@@ -342,12 +350,86 @@ class _ProfileScreenState extends State<ProfileScreen> {
         future: _minecraftService.getFullBodyUrl(_minecraftUsername!),
         builder: (context, snapshot) {
           if (snapshot.hasData) {
-            return Container(
-              width: 67,  // 100px height * (2/3) to maintain aspect ratio
-              height: 100,
-              decoration: BoxDecoration(
-                image: DecorationImage(
-                  image: NetworkImage(snapshot.data!),
+            return GestureDetector(
+              onTap: () {
+                showDialog(
+                  context: context,
+                  builder: (context) => Dialog(
+                    backgroundColor: AppColors.background,
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 300),
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            SizedBox(
+                              height: 200,
+                              child: Image.network(
+                                snapshot.data!,
+                                fit: BoxFit.contain,
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                TextButton(
+                                  onPressed: () => Navigator.pop(context),
+                                  child: Text(
+                                    'close'.toLowerCase(),
+                                    style: TextStyle(color: AppColors.textSecondary),
+                                  ),
+                                ),
+                                TextButton(
+                                  onPressed: () async {
+                                    try {
+                                      await _minecraftService.downloadSkin(_minecraftUsername!);
+                                      if (mounted) {
+                                        Navigator.pop(context);
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          SnackBar(
+                                            content: Text(
+                                              'downloading skin...'.toLowerCase(),
+                                              style: TextStyle(color: AppColors.background),
+                                            ),
+                                            backgroundColor: AppColors.accent,
+                                          ),
+                                        );
+                                      }
+                                    } catch (e) {
+                                      if (mounted) {
+                                        Navigator.pop(context);
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          SnackBar(
+                                            content: Text(
+                                              'failed to download skin'.toLowerCase(),
+                                              style: TextStyle(color: AppColors.background),
+                                            ),
+                                            backgroundColor: AppColors.error,
+                                          ),
+                                        );
+                                      }
+                                    }
+                                  },
+                                  child: Text(
+                                    'download'.toLowerCase(),
+                                    style: TextStyle(color: AppColors.accent),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              },
+              child: SizedBox(
+                height: 100,
+                child: Image.network(
+                  snapshot.data!,
                   fit: BoxFit.contain,
                 ),
               ),

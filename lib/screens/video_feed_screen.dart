@@ -296,7 +296,21 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
                 MaterialPageRoute(
                   builder: (context) => ProfileScreen(userId: video.creatorId),
                 ),
-              );
+              ).then((_) {
+                // Resume video playback when returning from profile
+                if (mounted) {
+                  _initializeControllersAround(_currentVideoIndex);
+                }
+              });
+              
+              // Pause and dispose controllers when navigating away
+              if (_playingIndex != null) {
+                final controller = _controllers[_playingIndex];
+                if (controller != null) {
+                  controller.pause();
+                  controller.setVolume(0.0);
+                }
+              }
             },
             child: StreamBuilder<DocumentSnapshot>(
               stream: FirebaseFirestore.instance
