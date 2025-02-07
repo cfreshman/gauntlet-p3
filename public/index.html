@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base href="/">
+
+  <meta charset="UTF-8">
+  <meta content="IE=Edge" http-equiv="X-UA-Compatible">
+  <meta name="description" content="TikBlok - A Minecraft video sharing platform">
+
+  <!-- Mobile meta tags -->
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <meta name="apple-mobile-web-app-title" content="TikBlok">
+  <link rel="apple-touch-icon" href="icons/Icon-192.png">
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/png" href="favicon.png"/>
+
+  <title>TikBlok</title>
+  <link rel="manifest" href="manifest.json">
+
+  <!-- Add Material Icons font -->
+  <link href="https://fonts.googleapis.com/css2?family=Material+Icons" rel="stylesheet">
+
+  <style>
+    body {
+      background-color: #1a1a1a;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      overflow: hidden;
+    }
+
+    #phone-container {
+      position: relative;
+      width: 896px; /* 16:9 aspect ratio */
+      height: 414px;
+      background: #000;
+      border-radius: 40px;
+      padding: 10px;
+      box-shadow: 0 0 50px rgba(0, 0, 0, 0.3);
+      overflow: hidden;
+    }
+
+    #flutter-container {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      border-radius: 30px;
+      overflow: hidden;
+    }
+
+    #loading {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 128px;
+      height: 128px;
+    }
+
+    /* Add styles for file input */
+    input[type="file"] {
+      position: fixed !important;
+      height: 1px !important;
+      width: 1px !important;
+      overflow: hidden !important;
+      clip: rect(1px, 1px, 1px, 1px) !important;
+      white-space: nowrap !important;
+      opacity: 0 !important;
+    }
+
+    /* Ensure file input stays within container */
+    flt-glass-pane {
+      overflow: hidden !important;
+    }
+
+    @media (max-width: 920px) {
+      #phone-container {
+        width: 100vw;
+        height: 100vh;
+        border-radius: 0;
+        padding: 0;
+      }
+
+      #flutter-container {
+        border-radius: 0;
+      }
+    }
+  </style>
+
+  <!-- This script adds the flutter initialization JS code -->
+  <script src="flutter.js" defer></script>
+</head>
+<body>
+  <div id="phone-container">
+    <div id="flutter-container">
+      <div id="loading">
+        <style>
+          #loading {
+            align-items: center;
+            display: flex;
+            height: 100%;
+            justify-content: center;
+            width: 100%;
+          }
+          #loading img {
+            animation: breathe 1s ease-in-out infinite alternate;
+            opacity: 0.66;
+            transition: opacity 0.4s;
+            width: 128px;
+            height: 128px;
+          }
+          #loading.main_done img {
+            opacity: 1;
+          }
+          @keyframes breathe {
+            from {
+              transform: scale(1)
+            }
+            to {
+              transform: scale(0.95)
+            }
+          }
+        </style>
+        <img src="favicon.png" alt="Loading..." />
+      </div>
+    </div>
+  </div>
+
+  <script>
+    window.addEventListener('load', function() {
+      var loading = document.querySelector('#loading');
+      
+      // Initialize Flutter
+      _flutter.loader.loadEntrypoint({
+        onEntrypointLoaded: async function(engineInitializer) {
+          let appRunner = await engineInitializer.initializeEngine({
+            hostElement: document.querySelector('#flutter-container')
+          });
+          await appRunner.runApp();
+          // Wait a bit longer to ensure Firebase services are initialized
+          setTimeout(function() {
+            if (loading) {
+              loading.remove();
+            }
+          }, 1000);
+        }
+      });
+    });
+  </script>
+</body>
+</html> 
