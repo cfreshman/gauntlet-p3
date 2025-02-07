@@ -1,5 +1,18 @@
 {
   "projects": {
     "default": "reel-ai-dev"
-  }
+  },
+  "targets": {
+    "reel-ai-dev": {
+      "hosting": {
+        "app": [
+          "reel-ai-dev"
+        ],
+        "aasa": [
+          "reel-ai-dev"
+        ]
+      }
+    }
+  },
+  "etags": {}
 }
