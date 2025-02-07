@@ -216,11 +216,49 @@ class VideoService {
         .map((snapshot) => snapshot.docs.map((doc) => Video.fromFirestore(doc)).toList());
   }
 
-  // Increment view count
+  // Increment view count and track video history
   Future<void> incrementViewCount(String videoId) async {
-    await _firestore.collection('videos').doc(videoId).update({
-      'viewCount': FieldValue.increment(1),
-    });
+    try {
+      // First verify the video exists
+      final videoDoc = await _firestore.collection('videos').doc(videoId).get();
+      if (!videoDoc.exists) {
+        print('Video not found: $videoId');
+        return;
+      }
+
+      final batch = _firestore.batch();
+      
+      // Increment video view count
+      batch.update(
+        _firestore.collection('videos').doc(videoId),
+        {'viewCount': FieldValue.increment(1)}
+      );
+
+      // Track in user's history if logged in
+      final user = _auth.currentUser;
+      if (user != null) {
+        final historyRef = _firestore
+          .collection('users')
+          .doc(user.uid)
+          .collection('video_history')
+          .doc(videoId);
+
+        // Use set with merge to handle both create and update cases
+        batch.set(
+          historyRef,
+          {
+            'videoId': videoId,
+            'viewedAt': FieldValue.serverTimestamp(),
+          },
+          SetOptions(merge: true)
+        );
+      }
+
+      await batch.commit();
+    } catch (e) {
+      print('Error incrementing view count: $e');
+      // Don't throw - view count is non-critical
+    }
   }
 
   // Get current user's videos
@@ -239,25 +277,79 @@ class VideoService {
     return snapshot.docs.map((doc) => Video.fromFirestore(doc)).toList();
   }
 
-  // Search videos by title or tags
+  // Search videos by title, description, or semantic content
   Future<List<Video>> searchVideos({String? query, String? tag}) async {
-    Query videosQuery = _firestore.collection('videos');
+    try {
+      if (tag != null) {
+        // If tag is provided, use traditional tag search
+        final snapshot = await _firestore
+          .collection('videos')
+          .where('tags', arrayContains: tag)
+          .orderBy('createdAt', descending: true)
+          .get();
+        return snapshot.docs.map((doc) => Video.fromFirestore(doc)).toList();
+      }
 
-    // If tag is provided, filter by tag
-    if (tag != null) {
-      videosQuery = videosQuery.where('tags', arrayContains: tag);
+      if (query == null || query.isEmpty) {
+        // If no query, return latest videos
+        return getVideoFeed().first;
+      }
+
+      print('Starting semantic search for query: $query');
+      
+      // Use RAG for semantic search
+      final result = await _functions
+        .httpsCallable('searchVideos')
+        .call({
+          'query': query,
+          'limit': 20,  // Get more results for better filtering
+          'minScore': 0.2,  // Lowered threshold significantly for more results
+          'searchMode': 'semantic', // Tell backend to prioritize semantic matching
+          'fields': ['title', 'description', 'tags'], // Search across all text fields
+        });
+
+      print('RAG search results: ${result.data}');
+      
+      final videoIds = (result.data['results'] as List)
+        .map((v) => v['id'] as String)
+        .toList();
+
+      print('Found ${videoIds.length} matching videos');
+
+      if (videoIds.isEmpty) {
+        print('No semantic matches found, falling back to title search');
+        // Fallback to traditional title search if no semantic matches
+        final snapshot = await _firestore
+          .collection('videos')
+          .where('title', isGreaterThanOrEqualTo: query ?? '')
+          .where('title', isLessThanOrEqualTo: (query ?? '') + '\uf8ff')
+          .orderBy('title')
+          .orderBy('createdAt', descending: true)
+          .get();
+        return snapshot.docs.map((doc) => Video.fromFirestore(doc)).toList();
+      }
+
+      // Fetch full video objects
+      final videos = await Future.wait(
+        videoIds.map((id) => getVideoById(id))
+      );
+
+      final validVideos = videos.whereType<Video>().toList();
+      print('Returning ${validVideos.length} valid videos');
+      
+      return validVideos;
+    } catch (e) {
+      print('Error searching videos: $e');
+      // Fallback to traditional search on error
+      final snapshot = await _firestore
+        .collection('videos')
+        .where('title', isGreaterThanOrEqualTo: query ?? '')
+        .where('title', isLessThanOrEqualTo: (query ?? '') + '\uf8ff')
+        .orderBy('title')
+        .orderBy('createdAt', descending: true)
+        .get();
+      return snapshot.docs.map((doc) => Video.fromFirestore(doc)).toList();
     }
-
-    // If search query is provided, filter by title
-    if (query != null && query.isNotEmpty) {
-      videosQuery = videosQuery.where('title', isEqualTo: query);
-    }
-
-    // Order by creation date
-    videosQuery = videosQuery.orderBy('createdAt', descending: true);
-
-    final snapshot = await videosQuery.get();
-    return snapshot.docs.map((doc) => Video.fromFirestore(doc)).toList();
   }
 
   // Like/Unlike a video
@@ -572,5 +664,113 @@ class VideoService {
         ? UrlService.instance.getCurrentOrigin() ?? 'https://reel-ai-dev.web.app'
         : 'https://reel-ai-dev.web.app';
     return '$origin/video/$videoId';
+  }
+
+  // Get personalized video recommendations using RAG
+  Future<List<Video>> getRecommendedVideos({int limit = 10}) async {
+    final user = _auth.currentUser;
+    if (user == null) {
+      // If no user, return latest videos
+      return getVideoFeed().first;
+    }
+
+    try {
+      print('Starting recommendation process for user: ${user.uid}');
+      
+      // Get user's recently watched and liked videos for context
+      final likedVideos = await getLikedVideos(limit: 10).first;
+      print('Found ${likedVideos.length} liked videos');
+      
+      // Get recently viewed videos from the last 48 hours
+      final recentlyViewedSnapshot = await _firestore
+          .collection('users')
+          .doc(user.uid)
+          .collection('video_history')
+          .where('viewedAt', isGreaterThan: Timestamp.fromDate(
+            DateTime.now().subtract(const Duration(hours: 48))
+          ))
+          .orderBy('viewedAt', descending: true)
+          .limit(20)
+          .get();
+      
+      print('Found ${recentlyViewedSnapshot.docs.length} recently viewed videos');
+      
+      // Get the full video objects for recently viewed
+      final recentlyViewedVideos = await Future.wait(
+        recentlyViewedSnapshot.docs.map((doc) async {
+          final videoId = doc.data()['videoId'] as String;
+          return await getVideoById(videoId);
+        })
+      );
+
+      // Build a richer context string from user's interests
+      final context = [
+        // From liked videos
+        ...likedVideos.map((v) => v.title),
+        ...likedVideos.map((v) => v.description),
+        ...likedVideos.expand((v) => v.tags),
+        // From recently viewed
+        ...recentlyViewedVideos.whereType<Video>().map((v) => v.title),
+        ...recentlyViewedVideos.whereType<Video>().map((v) => v.description),
+        ...recentlyViewedVideos.whereType<Video>().expand((v) => v.tags),
+      ].join(' ');
+
+      print('Built context string: $context');
+
+      // Get IDs to exclude
+      final recentlyLikedIds = likedVideos.map((v) => v.id).toSet();
+      final recentlyViewedIds = recentlyViewedSnapshot.docs
+          .map((doc) => doc.data()['videoId'] as String)
+          .toSet();
+      final excludeIds = {...recentlyLikedIds, ...recentlyViewedIds};
+
+      print('Excluding ${excludeIds.length} recently interacted videos');
+
+      // If no context (new user), return latest videos
+      if (context.trim().isEmpty) {
+        print('No context available, returning feed');
+        return getVideoFeed().first;
+      }
+
+      // Use RAG to find similar videos
+      final result = await _functions
+        .httpsCallable('searchVideos')
+        .call({
+          'query': context,
+          'limit': limit * 3,
+          'excludeIds': excludeIds.toList(),
+          'minScore': 0.3,  // Lowered threshold for recommendations
+        });
+
+      print('RAG results: ${result.data}');
+
+      final videoIds = (result.data['results'] as List)
+        .map((v) => v['id'] as String)
+        .where((id) => !excludeIds.contains(id))
+        .toList();
+
+      print('Found ${videoIds.length} recommended videos');
+
+      if (videoIds.isEmpty) {
+        print('No recommendations found, returning feed');
+        return getVideoFeed().first;
+      }
+
+      // Fetch full video objects
+      final videos = await Future.wait(
+        videoIds.map((id) => getVideoById(id))
+      );
+
+      // Filter nulls and randomize order slightly
+      final validVideos = videos.whereType<Video>().toList()
+        ..shuffle();
+
+      print('Returning ${validVideos.take(limit).length} recommendations');
+      
+      return validVideos.take(limit).toList();
+    } catch (e) {
+      print('Error getting recommendations: $e');
+      return getVideoFeed().first;
+    }
   }
 } 
