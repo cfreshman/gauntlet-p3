@@ -5,6 +5,7 @@ import '../widgets/video_viewer.dart';
 import '../widgets/comment_list.dart';
 import '../services/video_service.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:video_player/video_player.dart';
 
 class VideoScreen extends StatefulWidget {
   final Video video;
@@ -21,6 +22,26 @@ class VideoScreen extends StatefulWidget {
 class _VideoScreenState extends State<VideoScreen> {
   final _videoService = VideoService();
   bool _showComments = false;
+  late VideoPlayerController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = VideoPlayerController.network(
+      widget.video.videoUrl,
+      videoPlayerOptions: VideoPlayerOptions(mixWithOthers: true),
+    )..initialize().then((_) {
+      if (mounted) {
+        _controller.play();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
 
   void _toggleComments() {
     setState(() {
@@ -53,7 +74,7 @@ class _VideoScreenState extends State<VideoScreen> {
             aspectRatio: 16 / 9,
             child: VideoViewer(
               video: widget.video,
-              autoPlay: true,
+              controller: _controller,
               showControls: true,
               isInFeed: false,
               onVideoEnd: () {

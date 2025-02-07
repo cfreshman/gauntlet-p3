@@ -12,7 +12,7 @@ import '../providers/audio_state_provider.dart';
 
 class VideoViewer extends StatefulWidget {
   final Video video;
-  final bool autoPlay;
+  final VideoPlayerController controller;
   final bool showControls;
   final bool isInFeed;
   final VoidCallback? onVideoEnd;
@@ -21,7 +21,7 @@ class VideoViewer extends StatefulWidget {
   const VideoViewer({
     super.key,
     required this.video,
-    this.autoPlay = true,
+    required this.controller,
     this.showControls = true,
     this.isInFeed = false,
     this.onVideoEnd,
@@ -33,51 +33,22 @@ class VideoViewer extends StatefulWidget {
 }
 
 class _VideoViewerState extends State<VideoViewer> {
-  late VideoPlayerController _controller;
   final _videoService = VideoService();
   bool _viewCounted = false;
   bool _showOverlay = false;
   Timer? _singleTapTimer;
+  bool _userPaused = false;  // Track if video was paused by user action
 
   @override
   void initState() {
     super.initState();
-    _initializeController();
-  }
-
-  Future<void> _initializeController() async {
-    _controller = VideoPlayerController.network(
-      widget.video.videoUrl,
-      videoPlayerOptions: VideoPlayerOptions(
-        mixWithOthers: true,
-      ),
-    );
-    
-    try {
-      await _controller.initialize();
-      _controller.addListener(_handleVideoProgress);
-      
-      if (widget.autoPlay) {
-        if (kIsWeb) {
-          // Check AudioStateProvider for mute state
-          final audioState = context.read<AudioStateProvider>();
-          await _controller.setVolume(audioState.isMuted ? 0.0 : 1.0);
-        }
-        await _controller.play();
-      }
-      
-      await _controller.setLooping(widget.isInFeed);
-      
-      if (mounted) setState(() {});
-    } catch (e) {
-      print('Error initializing video controller: $e');
-    }
+    widget.controller.addListener(_handleVideoProgress);
   }
 
   void _handleVideoProgress() {
-    if (!_viewCounted && _controller.value.isInitialized) {
-      final duration = _controller.value.duration;
-      final position = _controller.value.position;
+    if (!_viewCounted && widget.controller.value.isInitialized) {
+      final duration = widget.controller.value.duration;
+      final position = widget.controller.value.position;
       final progress = position.inMilliseconds / duration.inMilliseconds;
 
       if (progress >= 0.75) {
@@ -93,10 +64,12 @@ class _VideoViewerState extends State<VideoViewer> {
 
   void _togglePlayPause() {
     setState(() {
-      if (_controller.value.isPlaying) {
-        _controller.pause();
+      if (widget.controller.value.isPlaying) {
+        widget.controller.pause();
+        _userPaused = true;
       } else {
-        _controller.play();
+        widget.controller.play();
+        _userPaused = false;
       }
     });
   }
@@ -106,7 +79,6 @@ class _VideoViewerState extends State<VideoViewer> {
       _showOverlay = !_showOverlay;
     });
 
-    // Auto-hide overlay after 3 seconds if showing
     if (_showOverlay) {
       Future.delayed(const Duration(seconds: 3), () {
         if (mounted) {
@@ -129,20 +101,19 @@ class _VideoViewerState extends State<VideoViewer> {
     _singleTapTimer?.cancel();
     final audioState = context.read<AudioStateProvider>();
     audioState.toggleMute();
-    _controller.setVolume(audioState.isMuted ? 0.0 : 1.0);
+    widget.controller.setVolume(audioState.isMuted ? 0.0 : 1.0);
   }
 
   @override
   void dispose() {
     _singleTapTimer?.cancel();
-    _controller.removeListener(_handleVideoProgress);
-    _controller.dispose();
+    widget.controller.removeListener(_handleVideoProgress);
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    if (!_controller.value.isInitialized) {
+    if (!widget.controller.value.isInitialized) {
       return Container(
         color: AppColors.background,
         child: const Center(
@@ -163,14 +134,14 @@ class _VideoViewerState extends State<VideoViewer> {
             fit: BoxFit.cover,
             clipBehavior: Clip.hardEdge,
             child: SizedBox(
-              width: _controller.value.size.width,
-              height: _controller.value.size.height,
-              child: VideoPlayer(_controller),
+              width: widget.controller.value.size.width,
+              height: widget.controller.value.size.height,
+              child: VideoPlayer(widget.controller),
             ),
           ),
           
-          // Pause indicator overlay (shows only when paused)
-          if (!_controller.value.isPlaying)
+          // Pause indicator overlay (shows only when explicitly paused by user)
+          if (!widget.controller.value.isPlaying && _userPaused)
             Center(
               child: Container(
                 padding: const EdgeInsets.all(16),
@@ -235,7 +206,7 @@ class _VideoViewerState extends State<VideoViewer> {
                 children: [
                   // Larger transparent scrubber for better touch target
                   VideoProgressIndicator(
-                    _controller,
+                    widget.controller,
                     allowScrubbing: true,
                     colors: VideoProgressColors(
                       playedColor: Colors.transparent,
@@ -246,7 +217,7 @@ class _VideoViewerState extends State<VideoViewer> {
                   ),
                   // Visual scrubber
                   VideoProgressIndicator(
-                    _controller,
+                    widget.controller,
                     allowScrubbing: true,
                     colors: VideoProgressColors(
                       playedColor: AppColors.accent,

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
+import 'package:provider/provider.dart';
 import '../models/video.dart';
 import '../services/video_service.dart';
 import '../theme/colors.dart';
@@ -15,6 +16,8 @@ import '../screens/profile_screen.dart';
 import '../screens/home_screen.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../services/minecraft_skin_service.dart';
+import 'package:video_player/video_player.dart';
+import '../providers/audio_state_provider.dart';
 
 class VideoFeedScreen extends StatefulWidget {
   final List<Video>? videos;  // Optional list of videos to show instead of feed
@@ -43,23 +46,90 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
   final Set<String> _likeInProgress = {};
   bool _showFullInfo = true;
 
+  // Video controller management
+  final Map<int, VideoPlayerController> _controllers = {};
+  static const _preloadWindow = 2;  // Load 2 videos ahead
+  int? _playingIndex;  // Track which video is currently playing
+
   @override
   void initState() {
     super.initState();
     _pageController = PageController(initialPage: widget.initialIndex);
     _currentVideoIndex = widget.initialIndex;
-    _pageController.addListener(_handlePageChange);
+    _pageController.addListener(_handleScroll);
     Future.delayed(const Duration(seconds: 3), () {
       if (mounted) {
         setState(() => _showFullInfo = false);
       }
     });
+    
+    // Initialize controllers for initial window
+    _initializeControllersAround(widget.initialIndex);
   }
 
-  void _handlePageChange() {
+  void _handleScroll() {
     final page = _pageController.page?.round() ?? 0;
     if (page != _currentVideoIndex) {
       setState(() => _currentVideoIndex = page);
+      _initializeControllersAround(page);
+    }
+  }
+
+  Future<void> _initializeControllersAround(int index) async {
+    final videos = widget.videos ?? await _videoService.getVideoFeed().first;
+    
+    // First pause any currently playing video
+    if (_playingIndex != null) {
+      final oldController = _controllers[_playingIndex];
+      if (oldController != null) {
+        await oldController.pause();
+        await oldController.setVolume(0.0);
+      }
+      _playingIndex = null;
+    }
+    
+    // Calculate window of videos to load
+    final start = (index - 1).clamp(0, videos.length);
+    final end = (index + _preloadWindow).clamp(0, videos.length);
+    
+    // Remove controllers outside window
+    _controllers.removeWhere((i, controller) {
+      if (i < start || i >= end) {
+        controller.dispose();
+        return true;
+      }
+      return false;
+    });
+    
+    // Initialize new controllers within window
+    for (var i = start; i < end; i++) {
+      if (!_controllers.containsKey(i)) {
+        final controller = VideoPlayerController.network(
+          videos[i].videoUrl,
+          videoPlayerOptions: VideoPlayerOptions(mixWithOthers: true),
+        );
+        
+        try {
+          await controller.initialize();
+          await controller.setVolume(0.0);
+          await controller.setLooping(true);
+          _controllers[i] = controller;
+        } catch (e) {
+          print('Error initializing controller for video $i: $e');
+          controller.dispose();
+        }
+      }
+    }
+
+    // Play the current video
+    if (_controllers.containsKey(index)) {
+      final controller = _controllers[index];
+      if (controller != null) {
+        final audioState = context.read<AudioStateProvider>();
+        await controller.setVolume(audioState.isMuted ? 0.0 : 1.0);
+        await controller.play();
+        _playingIndex = index;
+      }
     }
   }
 
@@ -71,7 +141,12 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
 
   @override
   void dispose() {
-    _pageController.removeListener(_handlePageChange);
+    _playingIndex = null;
+    for (final controller in _controllers.values) {
+      controller.dispose();
+    }
+    _controllers.clear();
+    _pageController.removeListener(_handleScroll);
     _pageController.dispose();
     super.dispose();
   }
@@ -598,11 +673,9 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
                               ),
                               const SizedBox(height: 24),
                               TextButton(
-                                onPressed: () => _pageController.animateToPage(
-                                  0,
-                                  duration: const Duration(milliseconds: 500),
-                                  curve: Curves.easeInOut,
-                                ),
+                                onPressed: () {
+                                  _pageController.jumpToPage(0);
+                                },
                                 child: Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                                   decoration: BoxDecoration(
@@ -630,7 +703,10 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
                           // Video viewer
                           VideoViewer(
                             video: video,
-                            autoPlay: index == _currentVideoIndex,
+                            controller: _controllers[index] ?? VideoPlayerController.network(
+                              video.videoUrl,
+                              videoPlayerOptions: VideoPlayerOptions(mixWithOthers: true),
+                            ),
                             showControls: true,
                             isInFeed: true,
                           ),
