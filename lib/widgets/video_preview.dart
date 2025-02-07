@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import '../models/video.dart';
 import '../theme/colors.dart';
 import '../extensions/string_extensions.dart';
-import '../screens/video_screen.dart';
 import '../screens/video_feed_screen.dart';
 import '../screens/standalone_video_screen.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';

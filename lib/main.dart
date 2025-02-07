@@ -10,9 +10,18 @@ import 'widgets/loading_indicator.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'providers/audio_state_provider.dart';
+import 'router.dart';
+// Only import web plugins when running on web
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter_web_plugins/url_strategy.dart' if (dart.library.html) 'package:flutter_web_plugins/flutter_web_plugins.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  
+  // Only use path URL strategy on web
+  if (kIsWeb) {
+    usePathUrlStrategy();
+  }
   
   // Initialize Firebase first
   await Firebase.initializeApp(
@@ -52,9 +61,10 @@ class MainApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
+    return MaterialApp.router(
       debugShowCheckedModeBanner: false,
       title: 'TikBlok',
+      routerConfig: router,
       theme: ThemeData(
         useMaterial3: true,
         brightness: Brightness.dark,
@@ -164,20 +174,6 @@ class MainApp extends StatelessWidget {
           thickness: 1,
           space: 1,
         ),
-      ),
-      home: StreamBuilder<User?>(
-        stream: FirebaseAuth.instance.authStateChanges(),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const LoadingIndicator();
-          }
-          
-          if (snapshot.hasData) {
-            return const HomeScreen();
-          }
-          
-          return const AuthScreen();
-        },
       ),
     );
   }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
 import 'package:provider/provider.dart';
+import 'package:share_plus/share_plus.dart';
 import '../models/video.dart';
 import '../services/video_service.dart';
 import '../theme/colors.dart';
@@ -18,17 +19,23 @@ import 'package:google_fonts/google_fonts.dart';
 import '../services/minecraft_skin_service.dart';
 import 'package:video_player/video_player.dart';
 import '../providers/audio_state_provider.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
+import '../services/url_service.dart';
 
 class VideoFeedScreen extends StatefulWidget {
   final List<Video>? videos;  // Optional list of videos to show instead of feed
   final int initialIndex;     // Starting position in the video list
   final bool showBackSidebar; // Whether to show the back sidebar
+  final VoidCallback? onBack; // Callback for back button
 
   const VideoFeedScreen({
     super.key,
     this.videos,
     this.initialIndex = 0,
     this.showBackSidebar = true,
+    this.onBack,
   });
 
   @override
@@ -134,6 +141,21 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
   }
 
   void _toggleComments() {
+    // Check for authentication first
+    if (_authService.currentUser == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'please login to view comments'.toLowerCase(),
+            style: TextStyle(color: AppColors.background),
+          ),
+          backgroundColor: AppColors.accent,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
     setState(() {
       _showComments = !_showComments;
     });
@@ -157,7 +179,10 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
       if (currentUser == null) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Please login to upload videos'),
+            content: Text(
+              'Please login to upload videos',
+              style: TextStyle(color: AppColors.background),
+            ),
             backgroundColor: AppColors.accent,
             behavior: SnackBarBehavior.floating,
           ),
@@ -203,7 +228,7 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
           SnackBar(
             content: Text(
               'Error uploading video: ${e.toString()}',
-              style: TextStyle(color: AppColors.background),
+              style: TextStyle(color: AppColors.textPrimary),
             ),
             backgroundColor: AppColors.error,
             behavior: SnackBarBehavior.floating,
@@ -233,7 +258,7 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
           SnackBar(
             content: Text(
               e.toString().replaceAll('Exception: ', '').toLowerCase(),
-              style: TextStyle(color: AppColors.background),
+              style: TextStyle(color: AppColors.textPrimary),
             ),
             backgroundColor: AppColors.error,
           ),
@@ -243,6 +268,23 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
   }
 
   Future<void> _handleLike(Video video, bool currentlyLiked) async {
+    // Check for authentication first
+    if (_authService.currentUser == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'please login to like videos'.toLowerCase(),
+              style: TextStyle(color: AppColors.background),
+            ),
+            backgroundColor: AppColors.accent,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+      return;
+    }
+
     // Don't allow multiple like operations at once
     if (_likeInProgress.contains(video.id)) return;
 
@@ -264,7 +306,7 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
           SnackBar(
             content: Text(
               'Failed to update like'.toLowerCase(),
-              style: TextStyle(color: AppColors.background),
+              style: TextStyle(color: AppColors.textPrimary),
             ),
             backgroundColor: AppColors.error,
             behavior: SnackBarBehavior.floating,
@@ -280,6 +322,47 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
     }
   }
 
+  Widget _buildActionButton({
+    required IconData icon,
+    String? label,
+    required VoidCallback onTap,
+    Color? color,
+  }) {
+    return SizedBox(
+      width: 40,
+      child: Material(
+        color: AppColors.background.withOpacity(0.5),
+        borderRadius: BorderRadius.circular(12),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(12),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Column(
+              children: [
+                Icon(
+                  icon,
+                  color: color ?? AppColors.textPrimary,
+                  size: 24,
+                ),
+                if (label != null) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    label.toLowerCase(),
+                    style: TextStyle(
+                      color: color ?? AppColors.textPrimary,
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildVideoActions(Video video) {
     final isVideoOwner = _authService.currentUser?.uid == video.creatorId;
 
@@ -287,256 +370,243 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
       mainAxisSize: MainAxisSize.min,
       children: [
         // Uploader profile
-        Container(
-          margin: const EdgeInsets.only(bottom: 8),
-          child: GestureDetector(
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => ProfileScreen(userId: video.creatorId),
-                ),
-              ).then((_) {
-                // Resume video playback when returning from profile
-                if (mounted) {
-                  _initializeControllersAround(_currentVideoIndex);
-                }
-              });
-              
-              // Pause and dispose controllers when navigating away
-              if (_playingIndex != null) {
-                final controller = _controllers[_playingIndex];
-                if (controller != null) {
-                  controller.pause();
-                  controller.setVolume(0.0);
-                }
-              }
-            },
-            child: StreamBuilder<DocumentSnapshot>(
-              stream: FirebaseFirestore.instance
-                  .collection('users')
-                  .doc(video.creatorId)
-                  .snapshots(),
-              builder: (context, snapshot) {
-                String? photoUrl;
-                String? minecraftUsername;
-                if (snapshot.hasData && snapshot.data!.exists) {
-                  final userData = snapshot.data!.data() as Map<String, dynamic>;
-                  photoUrl = userData['photoUrl'] as String?;
-                  minecraftUsername = userData['minecraftUsername'] as String?;
-                }
-                
-                if (minecraftUsername != null) {
-                  // Use Minecraft skin as avatar
-                  return FutureBuilder<String?>(
-                    future: MinecraftSkinService().getFullBodyUrl(minecraftUsername),
-                    builder: (context, skinSnapshot) {
-                      if (!skinSnapshot.hasData) {
-                        return const SizedBox(width: 40, height: 60); // Invisible placeholder
-                      }
-
-                      if (skinSnapshot.hasData && skinSnapshot.data != null) {
-                        return Container(
-                          width: 40,
-                          height: 60,
-                          margin: const EdgeInsets.only(bottom: 8),
-                          decoration: BoxDecoration(
-                            image: DecorationImage(
-                              image: NetworkImage(skinSnapshot.data!),
-                              fit: BoxFit.contain,
-                            ),
-                          ),
-                        );
-                      }
-
-                      // Fallback to regular avatar if skin loading fails
-                      return CircleAvatar(
-                        radius: 20,
-                        backgroundColor: AppColors.accent,
-                        backgroundImage: photoUrl != null ? NetworkImage(photoUrl) : null,
-                        child: photoUrl == null ? Text(
-                          video.creatorUsername[0].toUpperCase(),
-                          style: TextStyle(
-                            color: AppColors.background,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ) : null,
-                      );
-                    },
-                  );
-                }
-                
-                // Regular avatar if no Minecraft username
-                return CircleAvatar(
-                  radius: 20,
-                  backgroundColor: AppColors.accent,
-                  backgroundImage: photoUrl != null ? NetworkImage(photoUrl) : null,
-                  child: photoUrl == null ? Text(
-                    video.creatorUsername[0].toUpperCase(),
-                    style: TextStyle(
-                      color: AppColors.background,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ) : null,
-                );
-              },
-            ),
-          ),
-        ),
-
-        // Like button with count
-        StreamBuilder<bool>(
-          stream: _videoService.hasLiked(video.id),
+        StreamBuilder<DocumentSnapshot>(
+          stream: FirebaseFirestore.instance
+              .collection('users')
+              .doc(video.creatorId)
+              .snapshots(),
           builder: (context, snapshot) {
-            final hasLiked = snapshot.data ?? false;
-            final likeCount = _localLikeCounts[video.id] ?? video.likeCount;
-            final isProcessing = _likeInProgress.contains(video.id);
+            String? minecraftUsername;
+            if (snapshot.hasData && snapshot.data!.exists) {
+              final data = snapshot.data!.data() as Map<String, dynamic>;
+              minecraftUsername = data['minecraftUsername'] as String?;
+            }
             
             return Container(
               margin: const EdgeInsets.only(bottom: 8),
-              child: SizedBox(
-                width: 40,
-                child: Material(
-                  color: AppColors.background.withOpacity(0.5),
-                  borderRadius: BorderRadius.circular(12),
-                  child: InkWell(
-                    onTap: isProcessing ? null : () => _handleLike(video, hasLiked),
-                    borderRadius: BorderRadius.circular(12),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 8),
-                      child: Column(
-                        children: [
-                          isProcessing 
-                            ? SizedBox(
-                                width: 24,
-                                height: 24,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: hasLiked ? AppColors.accent : AppColors.textPrimary,
-                                ),
-                              )
-                            : Icon(
-                                hasLiked ? Icons.favorite : Icons.favorite_border,
-                                color: hasLiked ? AppColors.accent : AppColors.textPrimary,
-                                size: 24,
-                              ),
-                          const SizedBox(height: 4),
-                          Text(
-                            '$likeCount'.toLowerCase(),
-                            style: TextStyle(
-                              color: hasLiked ? AppColors.accent : AppColors.textPrimary,
-                              fontSize: 12,
-                            ),
-                          ),
-                        ],
-                      ),
+              child: GestureDetector(
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => ProfileScreen(userId: video.creatorId),
                     ),
-                  ),
-                ),
-              ),
-            );
-          },
-        ),
-        
-        // Comment button with count
-        Container(
-          margin: const EdgeInsets.only(bottom: 8),
-          child: SizedBox(
-            width: 40,
-            child: Material(
-              color: AppColors.background.withOpacity(0.5),
-              borderRadius: BorderRadius.circular(12),
-              child: InkWell(
-                onTap: _toggleComments,
-                borderRadius: BorderRadius.circular(12),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 8),
-                  child: Column(
-                    children: [
-                      Icon(
-                        Icons.comment_outlined,
-                        color: _showComments ? AppColors.accent : AppColors.textPrimary,
-                        size: 24,
-                      ),
-                      const SizedBox(height: 4),
-                      StreamBuilder<DocumentSnapshot>(
-                        stream: _videoService.firestore
-                            .collection('videos')
-                            .doc(video.id)
-                            .snapshots(),
+                  ).then((_) {
+                    if (mounted) {
+                      _initializeControllersAround(_currentVideoIndex);
+                    }
+                  });
+                  
+                  if (_playingIndex != null) {
+                    final controller = _controllers[_playingIndex];
+                    if (controller != null) {
+                      controller.pause();
+                      controller.setVolume(0.0);
+                    }
+                  }
+                },
+                child: minecraftUsername != null && minecraftUsername.isNotEmpty
+                    ? FutureBuilder<String>(
+                        future: MinecraftSkinService().getFullBodyUrl(minecraftUsername),
                         builder: (context, snapshot) {
-                          final commentCount = snapshot.hasData
-                              ? (snapshot.data!.data() as Map<String, dynamic>)['commentCount'] ?? 0
-                              : video.commentCount;
-                          return Text(
-                            '$commentCount'.toLowerCase(),
-                            style: TextStyle(
-                              color: _showComments ? AppColors.accent : AppColors.textPrimary,
-                              fontSize: 12,
+                          if (snapshot.hasData) {
+                            return SizedBox(
+                              height: 48,
+                              child: Image.network(
+                                snapshot.data!,
+                                fit: BoxFit.contain,
+                              ),
+                            );
+                          }
+                          return Container(
+                            width: 48,
+                            height: 48,
+                            decoration: BoxDecoration(
+                              color: AppColors.accent.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(8),
                             ),
+                            child: Icon(Icons.person, color: AppColors.accent),
                           );
                         },
+                      )
+                    : Container(
+                        width: 48,
+                        height: 48,
+                        decoration: BoxDecoration(
+                          color: AppColors.accent.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Icon(Icons.person, color: AppColors.accent),
                       ),
-                    ],
-                  ),
-                ),
               ),
-            ),
+            );
+          }
+        ),
+
+        // Like button
+        Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: StreamBuilder<bool>(
+            stream: _videoService.hasLiked(video.id),
+            builder: (context, snapshot) {
+              final hasLiked = snapshot.data ?? false;
+              return _buildActionButton(
+                icon: hasLiked ? Icons.favorite : Icons.favorite_border,
+                label: '${_localLikeCounts[video.id] ?? video.likeCount}',
+                color: hasLiked ? AppColors.accent : null,
+                onTap: () => _handleLike(video, hasLiked),
+              );
+            },
           ),
         ),
-        
+
+        // Comment button
+        Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: _buildActionButton(
+            icon: Icons.comment,
+            label: '${video.commentCount}',
+            onTap: _toggleComments,
+          ),
+        ),
+
         // Add to playlist button
-        Container(
-          margin: EdgeInsets.only(bottom: isVideoOwner ? 8 : 0),
-          child: SizedBox(
-            width: 40,
-            child: Material(
-              color: AppColors.background.withOpacity(0.5),
-              borderRadius: BorderRadius.circular(12),
-              child: InkWell(
-                onTap: () {
-                  showDialog(
-                    context: context,
-                    builder: (context) => AddToPlaylistDialog(videoId: video.id),
-                  );
-                },
-                borderRadius: BorderRadius.circular(12),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 8),
-                  child: Icon(
-                    Icons.playlist_add,
-                    color: AppColors.textPrimary,
-                    size: 24,
+        Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: _buildActionButton(
+            icon: Icons.playlist_add,
+            onTap: () {
+              if (_authService.currentUser == null) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      'please login to add to playlist'.toLowerCase(),
+                      style: TextStyle(color: AppColors.background),
+                    ),
+                    backgroundColor: AppColors.accent,
+                    behavior: SnackBarBehavior.floating,
                   ),
-                ),
-              ),
-            ),
+                );
+                return;
+              }
+              showDialog(
+                context: context,
+                builder: (context) => AddToPlaylistDialog(videoId: video.id),
+              );
+            },
           ),
         ),
-        
-        // Delete button (only for video owner)
-        if (isVideoOwner)
-          SizedBox(
-            width: 40,
-            child: Material(
-              color: AppColors.background.withOpacity(0.5),
-              borderRadius: BorderRadius.circular(12),
-              child: InkWell(
-                onTap: () => _deleteVideo(video),
-                borderRadius: BorderRadius.circular(12),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 8),
-                  child: Icon(
-                    Icons.delete_outline,
-                    color: AppColors.error,
-                    size: 24,
-                  ),
+
+        // Options/Share button (no bottom padding on last item)
+        _buildActionButton(
+          icon: isVideoOwner ? Icons.more_vert : Icons.share,
+          onTap: () {
+            if (isVideoOwner) {
+              showModalBottomSheet(
+                context: context,
+                backgroundColor: AppColors.background,
+                builder: (context) => Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    ListTile(
+                      leading: const Icon(Icons.share),
+                      title: Text(
+                        'share'.toLowerCase(),
+                        style: TextStyle(color: AppColors.textPrimary),
+                      ),
+                      onTap: () {
+                        Navigator.pop(context);
+                        _shareVideo(video);
+                      },
+                    ),
+                    ListTile(
+                      leading: Icon(Icons.delete_outline, color: AppColors.error),
+                      title: Text(
+                        'delete'.toLowerCase(),
+                        style: TextStyle(color: AppColors.error),
+                      ),
+                      onTap: () async {
+                        Navigator.pop(context);
+                        final confirm = await showDialog<bool>(
+                          context: context,
+                          builder: (context) => AlertDialog(
+                            backgroundColor: AppColors.background,
+                            title: Text(
+                              'delete video?'.toLowerCase(),
+                              style: TextStyle(color: AppColors.textPrimary),
+                            ),
+                            content: Text(
+                              'this action cannot be undone.'.toLowerCase(),
+                              style: TextStyle(color: AppColors.textSecondary),
+                            ),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.pop(context, false),
+                                child: Text(
+                                  'cancel'.toLowerCase(),
+                                  style: TextStyle(color: AppColors.textPrimary),
+                                ),
+                              ),
+                              TextButton(
+                                onPressed: () => Navigator.pop(context, true),
+                                child: Text(
+                                  'delete'.toLowerCase(),
+                                  style: TextStyle(color: AppColors.error),
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                        
+                        if (confirm == true) {
+                          await _deleteVideo(video);
+                        }
+                      },
+                    ),
+                  ],
                 ),
-              ),
-            ),
-          ),
+              );
+            } else {
+              _shareVideo(video);
+            }
+          },
+        ),
       ],
     );
+  }
+
+  void _shareVideo(Video video) async {
+    final origin = kIsWeb ? UrlService.instance.getCurrentOrigin() : null;
+    final url = origin != null 
+        ? '$origin/video/${video.id}'
+        : _videoService.getShareableUrl(video.id);
+        
+    try {
+      await Clipboard.setData(ClipboardData(text: url));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'link copied'.toLowerCase(),
+              style: TextStyle(color: AppColors.background),
+            ),
+            backgroundColor: AppColors.accent,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'failed to copy link'.toLowerCase(),
+              style: TextStyle(color: AppColors.textPrimary),
+            ),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    }
   }
 
   @override
@@ -545,6 +615,7 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
       backgroundColor: AppColors.background,
       body: SidebarLayout(
         showBackButton: widget.showBackSidebar && widget.videos != null,
+        onBack: widget.onBack,
         child: StreamBuilder<List<Video>>(
           stream: widget.videos != null 
               ? Stream.value(widget.videos!) 

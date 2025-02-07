@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import '../models/video.dart';
 import '../theme/colors.dart';
 import 'video_feed_screen.dart';
@@ -21,6 +22,15 @@ class StandaloneVideoScreen extends StatelessWidget {
         videos: videos,
         initialIndex: initialIndex,
         showBackSidebar: true,
+        onBack: () {
+          // Try to go back in navigation history first
+          if (Navigator.canPop(context)) {
+            Navigator.pop(context);
+          } else {
+            // If no history, go to watch feed
+            context.go('/watch');
+          }
+        },
       ),
     );
   }

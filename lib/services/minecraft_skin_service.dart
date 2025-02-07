@@ -6,9 +6,21 @@ import 'package:url_launcher/url_launcher_string.dart';
 class MinecraftSkinService {
   static const String _mineatar = 'https://api.mineatar.io';
   static const String _playerDb = 'https://playerdb.co/api/player/minecraft';
+  
+  // Cache UUIDs to prevent repeated requests
+  static final Map<String, String> _uuidCache = {};
+  static final Map<String, DateTime> _uuidCacheExpiry = {};
+  static const Duration _cacheDuration = Duration(minutes: 5);
 
-  // Get UUID from PlayerDB
+  // Get UUID from PlayerDB with caching
   Future<String> _getUUID(String username) async {
+    // Return cached UUID if available and not expired
+    final now = DateTime.now();
+    if (_uuidCache.containsKey(username) && 
+        _uuidCacheExpiry[username]!.isAfter(now)) {
+      return _uuidCache[username]!;
+    }
+
     try {
       print('Fetching UUID for username: $username');
       final response = await http.get(
@@ -27,6 +39,11 @@ class MinecraftSkinService {
 
       final uuid = data['data']['player']['id'];
       print('Found UUID: $uuid');
+      
+      // Cache the UUID with expiry
+      _uuidCache[username] = uuid;
+      _uuidCacheExpiry[username] = now.add(_cacheDuration);
+      
       return uuid;
     } catch (e) {
       print('Error getting UUID: $e');

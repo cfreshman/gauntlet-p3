@@ -11,6 +11,7 @@ import '../models/comment.dart';
 import 'package:ffmpeg_kit_flutter/ffmpeg_kit.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:cloud_functions/cloud_functions.dart';
+import 'url_service.dart';
 
 class VideoService {
   final FirebaseStorage _storage = FirebaseStorage.instance;
@@ -541,5 +542,35 @@ class VideoService {
         .map((doc) => 
             doc.exists && 
             (doc.data()?['likedBy'] as List<dynamic>?)?.contains(user.uid) == true);
+  }
+
+  // Get a single video by ID
+  Future<Video?> getVideoById(String videoId) async {
+    final doc = await _firestore.collection('videos').doc(videoId).get();
+    if (!doc.exists) return null;
+    return Video.fromFirestore(doc);
+  }
+
+  // Get related videos from the same creator
+  Future<List<Video>> getRelatedVideos(String creatorId, String currentVideoId, {int limit = 10}) async {
+    final snapshot = await _firestore
+        .collection('videos')
+        .where('creatorId', isEqualTo: creatorId)
+        .where(FieldPath.documentId, isNotEqualTo: currentVideoId)
+        .orderBy(FieldPath.documentId)
+        .orderBy('createdAt', descending: true)
+        .limit(limit)
+        .get();
+
+    return snapshot.docs.map((doc) => Video.fromFirestore(doc)).toList();
+  }
+
+  // Get a shareable video URL
+  String getShareableUrl(String videoId) {
+    // Use URL service for web, otherwise use production URL
+    final origin = kIsWeb 
+        ? UrlService.instance.getCurrentOrigin() ?? 'https://reel-ai-dev.web.app'
+        : 'https://reel-ai-dev.web.app';
+    return '$origin/video/$videoId';
   }
 } 

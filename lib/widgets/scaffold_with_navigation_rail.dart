@@ -1,45 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:reel_ai/screens/video_feed_screen.dart';
-import 'package:reel_ai/screens/search_screen.dart';
-import 'package:reel_ai/screens/profile_screen.dart';
-import 'package:reel_ai/screens/upload_video_screen.dart';
-import 'package:reel_ai/screens/subscription_feed_screen.dart';
-import '../theme/colors.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import '../theme/colors.dart';
 
-class HomeScreen extends StatefulWidget {
-  final String? initialQuery;
-  final List<String>? initialTags;
+class ScaffoldWithNavigationRail extends StatelessWidget {
   final StatefulNavigationShell navigationShell;
-  
-  const HomeScreen({
-    super.key, 
-    this.initialQuery,
-    this.initialTags,
+
+  const ScaffoldWithNavigationRail({
+    super.key,
     required this.navigationShell,
   });
 
-  static void navigateToSearch(BuildContext context, String tag) {
-    context.go('/search?tags=$tag');
-  }
-
-  static void navigateToProfile(BuildContext context, String userId) {
-    context.go('/profile/$userId');
-  }
-
-  @override
-  State<HomeScreen> createState() => _HomeScreenState();
-}
-
-class _HomeScreenState extends State<HomeScreen> {
-  @override
-  void initState() {
-    super.initState();
-  }
-
   void _onItemTapped(int index) {
-    widget.navigationShell.goBranch(index);
+    navigationShell.goBranch(index);
   }
 
   @override
@@ -61,7 +34,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   // Left side navigation rail
                   NavigationRail(
                     backgroundColor: Colors.transparent,
-                    selectedIndex: widget.navigationShell.currentIndex,
+                    selectedIndex: navigationShell.currentIndex,
                     onDestinationSelected: _onItemTapped,
                     labelType: NavigationRailLabelType.all,
                     useIndicator: true,
@@ -134,7 +107,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   
                   // Main content
                   Expanded(
-                    child: widget.navigationShell,
+                    child: navigationShell,
                   ),
                 ],
               ),

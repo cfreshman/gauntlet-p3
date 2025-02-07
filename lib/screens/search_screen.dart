@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
+import 'package:go_router/go_router.dart';
 import '../theme/colors.dart';
 import '../constants/tags.dart';
 import '../models/video.dart';
@@ -8,10 +9,12 @@ import '../services/video_service.dart';
 import '../widgets/video_preview.dart';
 
 class SearchScreen extends StatefulWidget {
+  final String? initialQuery;
   final String? initialTag;
   
   const SearchScreen({
     super.key,
+    this.initialQuery,
     this.initialTag,
   });
 
@@ -31,18 +34,45 @@ class _SearchScreenState extends State<SearchScreen> {
   void initState() {
     super.initState();
     _selectedTag = widget.initialTag;
+    if (widget.initialQuery != null) {
+      _searchController.text = widget.initialQuery!;
+    }
     _loadVideos();
   }
 
   @override
   void didUpdateWidget(SearchScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
+    // Always reset state when navigating through nav rail
     if (widget.initialTag != oldWidget.initialTag) {
       setState(() {
         _selectedTag = widget.initialTag;
+        // Clear search if we're clearing tags
+        if (widget.initialTag == null) {
+          _searchController.text = '';
+        }
       });
       _loadVideos();
     }
+    // Update search if initialQuery changes
+    if (widget.initialQuery != oldWidget.initialQuery) {
+      _searchController.text = widget.initialQuery ?? '';
+      _loadVideos();
+    }
+  }
+
+  void _updateUrl() {
+    final queryParams = <String, String>{};
+    if (_searchController.text.isNotEmpty) {
+      queryParams['q'] = _searchController.text;
+    }
+    if (_selectedTag != null) {
+      queryParams['tags'] = _selectedTag!;
+    }
+    
+    context.go(
+      '/search${queryParams.isEmpty ? '' : '?${Uri(queryParameters: queryParams).query}'}',
+    );
   }
 
   @override
@@ -72,6 +102,7 @@ class _SearchScreenState extends State<SearchScreen> {
   void _onSearchChanged(String query) {
     _debounceTimer?.cancel();
     _debounceTimer = Timer(const Duration(milliseconds: 500), () {
+      _updateUrl();
       _loadVideos();
     });
   }
@@ -80,6 +111,7 @@ class _SearchScreenState extends State<SearchScreen> {
     setState(() {
       _selectedTag = _selectedTag == tag ? null : tag;
     });
+    _updateUrl();
     _loadVideos();
   }
 
