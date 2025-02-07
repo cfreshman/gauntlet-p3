@@ -8,6 +8,7 @@ import '../widgets/loading_indicator.dart';
 import '../extensions/string_extensions.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 
 class EditProfileScreen extends StatefulWidget {
   const EditProfileScreen({super.key});
@@ -164,15 +165,24 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
   Future<void> _pickImage() async {
     try {
-      final ImagePicker picker = ImagePicker();
-      final XFile? image = await picker.pickImage(
+      // Hide file input immediately on web
+      if (kIsWeb) {
+        setState(() => _isLoading = true);
+      }
+      
+      final image = await ImagePicker().pickImage(
         source: ImageSource.gallery,
         maxWidth: 800,
         maxHeight: 800,
         imageQuality: 85,
       );
       
-      if (image == null) return;
+      if (image == null) {
+        if (kIsWeb) {
+          setState(() => _isLoading = false);
+        }
+        return;
+      }
 
       setState(() => _isLoading = true);
 

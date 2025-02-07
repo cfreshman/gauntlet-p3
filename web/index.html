@@ -65,6 +65,22 @@
       height: 128px;
     }
 
+    /* Add styles for file input */
+    input[type="file"] {
+      position: fixed !important;
+      height: 1px !important;
+      width: 1px !important;
+      overflow: hidden !important;
+      clip: rect(1px, 1px, 1px, 1px) !important;
+      white-space: nowrap !important;
+      opacity: 0 !important;
+    }
+
+    /* Ensure file input stays within container */
+    flt-glass-pane {
+      overflow: hidden !important;
+    }
+
     @media (max-width: 920px) {
       #phone-container {
         width: 100vw;
