@@ -7,6 +7,7 @@ import '../services/minecraft_skin_service.dart';
 import '../widgets/loading_indicator.dart';
 import '../extensions/string_extensions.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'dart:async';
 
 class EditProfileScreen extends StatefulWidget {
   const EditProfileScreen({super.key});
@@ -28,6 +29,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   bool _hasChanges = false;
   bool _isCheckingUsername = false;
   final _firestore = FirebaseFirestore.instance;
+  Timer? _debounceTimer;
 
   @override
   void initState() {
@@ -48,6 +50,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     _usernameController.dispose();
     _bioController.dispose();
     _minecraftUsernameController.dispose();
+    _debounceTimer?.cancel();
     super.dispose();
   }
 
@@ -84,39 +87,79 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   }
 
   Future<void> _loadMinecraftSkin() async {
+    _debounceTimer?.cancel();
     final username = _minecraftUsernameController.text;
-    setState(() {
-      _isCheckingUsername = true;
-      // Clear skin URL immediately if username is empty
-      if (username.isEmpty) {
-        _skinUrl = null;
-      }
-    });
+    print('Loading minecraft skin for username: $username');
 
-    try {
-      if (username.isEmpty) {
-        return; // Exit early if username is empty
+    if (username.isEmpty) {
+      print('Username is empty, clearing skin');
+      if (mounted) {
+        setState(() {
+          _isCheckingUsername = false;
+          _skinUrl = null;
+          _hasChanges = true;  // Mark as changed even when clearing
+        });
       }
+      return;
+    }
 
-      if (!_minecraftService.isValidUsername(username)) {
-        setState(() => _skinUrl = null);
+    // Mark as changed immediately when username is set/changed
+    if (mounted) {
+      setState(() {
+        _isCheckingUsername = true;
+        _hasChanges = true;  // Set this immediately, don't wait for skin
+      });
+    }
+    print('Starting debounce timer for username: $username');
+
+    // Debounce the API call
+    _debounceTimer = Timer(const Duration(milliseconds: 500), () async {
+      if (!mounted) {
+        print('Widget not mounted, cancelling');
         return;
       }
+      
+      try {
+        if (!_minecraftService.isValidUsername(username)) {
+          print('Invalid username format: $username');
+          setState(() {
+            _skinUrl = null;
+            _isCheckingUsername = false;
+          });
+          return;
+        }
 
-      final faceUrl = await _minecraftService.getFaceUrl(username);
-      if (mounted) {
-        setState(() => _skinUrl = faceUrl);
+        print('Fetching face URL for username: $username');
+        final faceUrl = await _minecraftService.getFaceUrl(username);
+        print('Received face URL: $faceUrl');
+        
+        // Only update if this is still the current username
+        if (!mounted) {
+          print('Widget unmounted after getting face URL');
+          return;
+        }
+
+        if (_minecraftUsernameController.text != username) {
+          print('Username changed while fetching, not updating state');
+          return;
+        }
+
+        print('Updating skin URL in state to: $faceUrl');
+        setState(() {
+          _skinUrl = faceUrl;
+          _isCheckingUsername = false;
+        });
+        print('State updated successfully - new skin URL: $_skinUrl');
+      } catch (e) {
+        print('Error loading Minecraft skin: $e');
+        if (mounted && _minecraftUsernameController.text == username) {
+          setState(() {
+            _skinUrl = null;
+            _isCheckingUsername = false;
+          });
+        }
       }
-    } catch (e) {
-      print('Error loading Minecraft skin: $e');
-      if (mounted) {
-        setState(() => _skinUrl = null);
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _isCheckingUsername = false);
-      }
-    }
+    });
   }
 
   Future<void> _pickImage() async {
@@ -171,14 +214,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     setState(() => _isLoading = true);
 
     try {
-      // Validate Minecraft username if provided
+      // Only validate Minecraft username format if provided, don't wait for API
       final minecraftUsername = _minecraftUsernameController.text.trim();
-      if (minecraftUsername.isNotEmpty) {
-        if (!_minecraftService.isValidUsername(minecraftUsername)) {
-          throw Exception('Invalid Minecraft username format');
-        }
-        // Try to get the face URL - this will throw if the username doesn't exist
-        await _minecraftService.getFaceUrl(minecraftUsername);
+      if (minecraftUsername.isNotEmpty && !_minecraftService.isValidUsername(minecraftUsername)) {
+        throw Exception('Invalid Minecraft username format');
       }
 
       // Always pass the minecraftUsername, whether empty or not
@@ -214,6 +253,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
+    print('Building EditProfileScreen - skinUrl: $_skinUrl, isCheckingUsername: $_isCheckingUsername');
     return Container(
       color: AppColors.background,
       child: SafeArea(
@@ -321,8 +361,16 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                                     child: Image.network(
                                       _skinUrl!,
                                       fit: BoxFit.contain,
+                                      headers: {
+                                        'User-Agent': 'TikBlok-App/1.0',
+                                        'Accept': 'image/webp,image/apng,image/*,*/*;q=0.8',
+                                      },
                                       loadingBuilder: (context, child, progress) {
-                                        if (progress == null) return child;
+                                        print('Image loading progress: $progress');
+                                        if (progress == null) {
+                                          print('Image load complete');
+                                          return child;
+                                        }
                                         return Center(
                                           child: CircularProgressIndicator(
                                             value: progress.expectedTotalBytes != null
@@ -331,6 +379,14 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                                                 : null,
                                             color: AppColors.accent,
                                           ),
+                                        );
+                                      },
+                                      errorBuilder: (context, error, stackTrace) {
+                                        print('Error loading skin image: $error');
+                                        return Icon(
+                                          Icons.error_outline,
+                                          size: 50,
+                                          color: AppColors.accent,
                                         );
                                       },
                                     ),
@@ -378,6 +434,12 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 TextField(
                   controller: _minecraftUsernameController,
                   style: TextStyle(color: AppColors.textPrimary),
+                  onChanged: (value) {
+                    if (!_hasChanges) {
+                      setState(() => _hasChanges = true);
+                    }
+                    _loadMinecraftSkin();
+                  },
                   decoration: InputDecoration(
                     labelText: 'minecraft username'.lowercase,
                     labelStyle: TextStyle(color: AppColors.textSecondary),
@@ -406,10 +468,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                             onPressed: _loadMinecraftSkin,
                           ),
                   ),
-                  onChanged: (_) {
-                    setState(() => _hasChanges = true);
-                    _loadMinecraftSkin();
-                  },
                 ),
                 const SizedBox(height: 16),
 
