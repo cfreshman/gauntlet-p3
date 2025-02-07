@@ -110,3 +110,5 @@ export const generateThumbnail = functions.https
       }
     }
   });
+
+export { generatePreview } from './preview';
