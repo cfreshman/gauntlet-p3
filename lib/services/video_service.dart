@@ -668,109 +668,157 @@ class VideoService {
 
   // Get personalized video recommendations using RAG
   Future<List<Video>> getRecommendedVideos({int limit = 10}) async {
-    final user = _auth.currentUser;
-    if (user == null) {
-      // If no user, return latest videos
-      return getVideoFeed().first;
-    }
-
     try {
-      print('Starting recommendation process for user: ${user.uid}');
+      final user = _auth.currentUser;
       
-      // Get user's recently watched and liked videos for context
-      final likedVideos = await getLikedVideos(limit: 10).first;
-      print('Found ${likedVideos.length} liked videos');
-      
-      // Get recently viewed videos from the last 48 hours
-      final recentlyViewedSnapshot = await _firestore
-          .collection('users')
-          .doc(user.uid)
-          .collection('video_history')
-          .where('viewedAt', isGreaterThan: Timestamp.fromDate(
-            DateTime.now().subtract(const Duration(hours: 48))
-          ))
-          .orderBy('viewedAt', descending: true)
-          .limit(20)
+      // If no user, return trending videos
+      if (user == null) {
+        final snapshot = await _firestore
+          .collection('videos')
+          .orderBy('viewCount', descending: true)
+          .limit(limit)
           .get();
-      
-      print('Found ${recentlyViewedSnapshot.docs.length} recently viewed videos');
-      
-      // Get the full video objects for recently viewed
-      final recentlyViewedVideos = await Future.wait(
-        recentlyViewedSnapshot.docs.map((doc) async {
-          final videoId = doc.data()['videoId'] as String;
-          return await getVideoById(videoId);
-        })
-      );
-
-      // Build a richer context string from user's interests
-      final context = [
-        // From liked videos
-        ...likedVideos.map((v) => v.title),
-        ...likedVideos.map((v) => v.description),
-        ...likedVideos.expand((v) => v.tags),
-        // From recently viewed
-        ...recentlyViewedVideos.whereType<Video>().map((v) => v.title),
-        ...recentlyViewedVideos.whereType<Video>().map((v) => v.description),
-        ...recentlyViewedVideos.whereType<Video>().expand((v) => v.tags),
-      ].join(' ');
-
-      print('Built context string: $context');
-
-      // Get IDs to exclude
-      final recentlyLikedIds = likedVideos.map((v) => v.id).toSet();
-      final recentlyViewedIds = recentlyViewedSnapshot.docs
-          .map((doc) => doc.data()['videoId'] as String)
-          .toSet();
-      final excludeIds = {...recentlyLikedIds, ...recentlyViewedIds};
-
-      print('Excluding ${excludeIds.length} recently interacted videos');
-
-      // If no context (new user), return latest videos
-      if (context.trim().isEmpty) {
-        print('No context available, returning feed');
-        return getVideoFeed().first;
+        return snapshot.docs.map((doc) => Video.fromFirestore(doc)).toList();
       }
 
-      // Use RAG to find similar videos
+      // Get user's liked videos
+      final likedVideos = await _firestore
+        .collection('users')
+        .doc(user.uid)
+        .collection('liked_videos')
+        .orderBy('timestamp', descending: true)
+        .limit(20)  // Increased to get more signal for recommendations
+        .get();
+
+      // Extract metadata from liked videos
+      final likedTags = <String>{};
+      final likedVideoIds = <String>{};
+      final likedTitles = <String>[];
+      final likedDescriptions = <String>[];
+
+      // Process liked videos
+      for (final doc in likedVideos.docs) {
+        final videoId = doc.id;
+        likedVideoIds.add(videoId);
+        final videoDoc = await _firestore.collection('videos').doc(videoId).get();
+        if (videoDoc.exists) {
+          final data = videoDoc.data()!;
+          final tags = List<String>.from(data['tags'] ?? []);
+          likedTags.addAll(tags);
+          likedTitles.add(data['title'] as String);
+          if (data['description'] != null && data['description'].toString().isNotEmpty) {
+            likedDescriptions.add(data['description'] as String);
+          }
+        }
+      }
+
+      // If user has no likes, return trending videos
+      if (likedTags.isEmpty && likedTitles.isEmpty) {
+        final snapshot = await _firestore
+          .collection('videos')
+          .orderBy('viewCount', descending: true)
+          .limit(limit)
+          .get();
+        return snapshot.docs.map((doc) => Video.fromFirestore(doc)).toList();
+      }
+
+      // Build semantic query from all metadata
+      final queryParts = [
+        ...likedTitles,
+        ...likedDescriptions,
+        ...likedTags,
+      ];
+
+      // Call RAG function to get personalized recommendations
       final result = await _functions
         .httpsCallable('searchVideos')
         .call({
-          'query': context,
-          'limit': limit * 3,
-          'excludeIds': excludeIds.toList(),
-          'minScore': 0.3,  // Lowered threshold for recommendations
+          'query': queryParts.join(' '),  // Combine all metadata into search query
+          'tags': likedTags.toList(),
+          'excludeIds': likedVideoIds.toList(),
+          'limit': limit,
+          'minScore': 0,  // Allow all matches through RAG scoring
+          'searchMode': 'rag',
         });
-
-      print('RAG results: ${result.data}');
 
       final videoIds = (result.data['results'] as List)
         .map((v) => v['id'] as String)
-        .where((id) => !excludeIds.contains(id))
         .toList();
-
-      print('Found ${videoIds.length} recommended videos');
-
-      if (videoIds.isEmpty) {
-        print('No recommendations found, returning feed');
-        return getVideoFeed().first;
-      }
 
       // Fetch full video objects
       final videos = await Future.wait(
         videoIds.map((id) => getVideoById(id))
       );
 
-      // Filter nulls and randomize order slightly
-      final validVideos = videos.whereType<Video>().toList()
-        ..shuffle();
-
-      print('Returning ${validVideos.take(limit).length} recommendations');
-      
-      return validVideos.take(limit).toList();
+      return videos.whereType<Video>().toList();
     } catch (e) {
       print('Error getting recommendations: $e');
-      return getVideoFeed().first;
+      // Fallback to trending videos on error
+      final snapshot = await _firestore
+        .collection('videos')
+        .orderBy('viewCount', descending: true)
+        .limit(limit)
+        .get();
+      return snapshot.docs.map((doc) => Video.fromFirestore(doc)).toList();
     }
+  }
+
+  // Helper to get videos user has interacted with recently
+  Future<List<Video>> _getRecentInteractions({int hours = 24}) async {
+    final user = _auth.currentUser;
+    if (user == null) return [];
+
+    // Get recently viewed
+    final recentlyViewed = await _firestore
+      .collection('users')
+      .doc(user.uid)
+      .collection('video_history')
+      .where('viewedAt', isGreaterThan: Timestamp.fromDate(
+        DateTime.now().subtract(Duration(hours: hours))
+      ))
+      .orderBy('viewedAt', descending: true)
+      .limit(10)
+      .get();
+
+    // Get recently liked
+    final recentlyLiked = await _firestore
+      .collection('users')
+      .doc(user.uid)
+      .collection('liked_videos')
+      .where('timestamp', isGreaterThan: Timestamp.fromDate(
+        DateTime.now().subtract(Duration(hours: hours))
+      ))
+      .orderBy('timestamp', descending: true)
+      .limit(10)
+      .get();
+
+    // Combine and fetch full video objects
+    final videoIds = {
+      ...recentlyViewed.docs.map((doc) => doc.data()['videoId'] as String),
+      ...recentlyLiked.docs.map((doc) => doc.id)
+    };
+
+    final videos = await Future.wait(
+      videoIds.map((id) => getVideoById(id))
+    );
+
+    return videos.whereType<Video>().toList();
+  }
+
+  // Helper to get videos by tags
+  Future<List<Video>> _getVideosByTags({
+    required List<String> tags,
+    required int limit
+  }) async {
+    if (tags.isEmpty) return [];
+
+    final snapshot = await _firestore
+      .collection('videos')
+      .where('tags', arrayContainsAny: tags)
+      .orderBy('createdAt', descending: true)
+      .limit(limit)
+      .get();
+
+    return snapshot.docs.map((doc) => Video.fromFirestore(doc)).toList();
   }
 } 

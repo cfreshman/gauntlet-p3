@@ -23,6 +23,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import '../services/url_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:convert';
 
 class VideoFeedScreen extends StatefulWidget {
   final List<Video>? videos;  // Optional list of videos to show instead of feed
@@ -54,6 +56,10 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
   bool _showFullInfo = true;
   List<Video> _videos = [];
   bool _isLoadingMore = false;
+  Set<String> _seenVideoIds = {};
+  static const String _seenVideosKey = 'seen_videos';
+  static const Duration _seenVideoExpiry = Duration(hours: 24);
+  static const int _maxSeenVideos = 1000; // Prevent unlimited growth
 
   // Video controller management
   final Map<int, VideoPlayerController> _controllers = {};
@@ -63,9 +69,17 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
   @override
   void initState() {
     super.initState();
+    
+    // Set videos first if provided
+    if (widget.videos != null) {
+      _videos = widget.videos!;
+    }
+    
+    // Initialize page controller after videos are set
     _pageController = PageController(initialPage: widget.initialIndex);
     _currentVideoIndex = widget.initialIndex;
     _pageController.addListener(_handleScroll);
+    
     Future.delayed(const Duration(seconds: 3), () {
       if (mounted) {
         setState(() => _showFullInfo = false);
@@ -75,22 +89,105 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
     // Initialize controllers for initial window
     _initializeControllersAround(widget.initialIndex);
 
-    // Load initial videos
-    _loadVideos();
+    // Only load videos from service if none were provided
+    if (widget.videos == null) {
+      _loadSeenVideos().then((_) {
+        _loadVideos();
+      });
+    }
+  }
+
+  Future<void> _loadSeenVideos() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final seenVideosJson = prefs.getString(_seenVideosKey);
+      if (seenVideosJson != null) {
+        final List<dynamic> seenVideosList = json.decode(seenVideosJson);
+        final now = DateTime.now();
+        
+        // Filter out entries older than 24 hours and sort by timestamp
+        final validEntries = seenVideosList.where((entry) {
+          final timestamp = DateTime.parse(entry['timestamp']);
+          return now.difference(timestamp) < _seenVideoExpiry;
+        }).toList()
+          ..sort((a, b) => DateTime.parse(b['timestamp']).compareTo(
+              DateTime.parse(a['timestamp'])));
+
+        // Keep only the most recent entries to prevent unlimited growth
+        final recentEntries = validEntries.take(_maxSeenVideos)
+            .map((entry) => entry['id'] as String).toSet();
+
+        setState(() {
+          _seenVideoIds = recentEntries;
+        });
+
+        // Save filtered list back to storage if we removed any entries
+        if (recentEntries.length != seenVideosList.length) {
+          await _saveSeenVideos();
+        }
+      }
+    } catch (e) {
+      print('Error loading seen videos: $e');
+      // On error, clear the storage to prevent persistence of corrupt data
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.remove(_seenVideosKey);
+      } catch (e) {
+        print('Error clearing seen videos: $e');
+      }
+    }
+  }
+
+  Future<void> _saveSeenVideos() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final now = DateTime.now();
+      
+      // Sort by timestamp and limit the number of entries
+      final seenVideosList = _seenVideoIds.take(_maxSeenVideos).map((id) => {
+        'id': id,
+        'timestamp': now.toIso8601String(),
+      }).toList();
+
+      // Use transaction-like approach
+      final success = await prefs.setString(_seenVideosKey, json.encode(seenVideosList));
+      if (!success && kDebugMode) {
+        print('Warning: Failed to save seen videos');
+      }
+    } catch (e) {
+      print('Error saving seen videos: $e');
+    }
+  }
+
+  Future<void> _markVideoAsSeen(String videoId) async {
+    if (!_seenVideoIds.contains(videoId)) {
+      setState(() {
+        // Remove oldest if at limit
+        if (_seenVideoIds.length >= _maxSeenVideos) {
+          _seenVideoIds.remove(_seenVideoIds.first);
+        }
+        _seenVideoIds.add(videoId);
+      });
+      await _saveSeenVideos();
+    }
   }
 
   Future<void> _loadVideos() async {
-    if (_isLoadingMore) return;
+    // Don't load more videos if we have a fixed list
+    if (widget.videos != null || _isLoadingMore) return;
+    
     setState(() => _isLoadingMore = true);
 
     try {
-      final newVideos = widget.videos ?? await _videoService.getRecommendedVideos();
+      // Load recommended videos
+      final newVideos = await _videoService.getRecommendedVideos(limit: 10);
       if (mounted) {
         setState(() {
           _videos = [..._videos, ...newVideos];
           _isLoadingMore = false;
         });
       }
+      print('Total videos in feed: ${_videos.length}');
     } catch (e) {
       print('Error loading videos: $e');
       if (mounted) {
@@ -693,7 +790,7 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
                     }
                   },
                   child: PageView.builder(
-                    physics: const NeverScrollableScrollPhysics(), // Disable PageView scrolling
+                    physics: const NeverScrollableScrollPhysics(),
                     controller: _pageController,
                     scrollDirection: Axis.vertical,
                     itemCount: _videos.length + 1,
@@ -703,11 +800,19 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
                         _showComments = false;
                         _showFullInfo = true;
                       });
+                      
+                      // Mark current video as seen
+                      if (index < _videos.length) {
+                        _markVideoAsSeen(_videos[index].id);
+                      }
+                      
                       Future.delayed(const Duration(seconds: 3), () {
                         if (mounted && _currentVideoIndex == index) {
                           setState(() => _showFullInfo = false);
                         }
                       });
+                      
+                      // Load more videos when nearing the end
                       if (index >= _videos.length - 3) {
                         _loadVideos();
                       }

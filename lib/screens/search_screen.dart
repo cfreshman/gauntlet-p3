@@ -215,6 +215,8 @@ class _SearchScreenState extends State<SearchScreen> {
                               showCreator: false,
                               videos: _videos,
                               currentIndex: index,
+                              showTimeAgo: true,
+                              showDuration: true,
                             ),
                           );
                         },
