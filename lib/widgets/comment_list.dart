@@ -157,7 +157,7 @@ class _CommentListState extends State<CommentList> {
                   ),
                 )
               : ListView.builder(
-                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  padding: EdgeInsets.zero,
                   itemCount: _currentComments.length + (_summary != null ? 1 : 0),
                   itemBuilder: (context, index) {
                     // Show summary at the top if it exists

@@ -41,34 +41,89 @@ interface SearchRequest {
 export const onVideoWrite = functions.firestore
   .onDocumentWritten('videos/{videoId}', async (event) => {
     if (!event.data) return;
+    let trace;
     
     const videoId = event.params.videoId;
     
-    // If video was deleted
-    if (!event.data.after) {
-      await deleteVideo(videoId);
-      return;
-    }
-    
-    // Video was created or updated
-    const videoData = event.data.after.data();
-    if (videoData) {
-      const video = {
-        id: videoId,
-        title: videoData.title,
-        description: videoData.description,
-        videoUrl: videoData.videoUrl,
-        thumbnailUrl: videoData.thumbnailUrl,
-        durationMs: videoData.durationMs,
-        creatorId: videoData.creatorId,
-        creatorUsername: videoData.creatorUsername,
-        tags: videoData.tags,
-        createdAt: videoData.createdAt,
-        likeCount: videoData.likeCount,
-        commentCount: videoData.commentCount,
-        viewCount: videoData.viewCount,
-      };
-      await upsertVideo(videoId, video);
+    try {
+      trace = await langfuse.trace({
+        id: `video-rag-${videoId}-${Date.now()}`,
+        name: "Video RAG Update",
+        metadata: {
+          videoId,
+          eventType: event.type,
+          functionName: 'onVideoWrite',
+          operation: event.data.after ? (event.data.before ? 'update' : 'create') : 'delete'
+        },
+        tags: [
+          'function:rag_update',
+          `video:${videoId}`,
+          event.data.after ? (event.data.before ? 'update' : 'create') : 'delete'
+        ]
+      });
+
+      // If video was deleted
+      if (!event.data.after) {
+        await deleteVideo(videoId);
+        await trace.update({
+          output: {
+            status: 'success',
+            operation: 'delete'
+          }
+        });
+        return;
+      }
+      
+      // Video was created or updated
+      const videoData = event.data.after.data();
+      if (videoData) {
+        const video = {
+          id: videoId,
+          title: videoData.title,
+          description: videoData.description,
+          videoUrl: videoData.videoUrl,
+          thumbnailUrl: videoData.thumbnailUrl,
+          durationMs: videoData.durationMs,
+          creatorId: videoData.creatorId,
+          creatorUsername: videoData.creatorUsername,
+          tags: videoData.tags,
+          createdAt: videoData.createdAt,
+          likeCount: videoData.likeCount,
+          commentCount: videoData.commentCount,
+          viewCount: videoData.viewCount,
+        };
+
+        const startTime = Date.now();
+        await upsertVideo(videoId, video);
+        
+        await trace.update({
+          output: {
+            status: 'success',
+            operation: event.data.before ? 'update' : 'create',
+            processingTimeMs: Date.now() - startTime,
+            videoMetadata: {
+              title: video.title,
+              tags: video.tags,
+              creatorUsername: video.creatorUsername,
+              hasDescription: !!video.description,
+              descriptionLength: video.description?.length
+            }
+          }
+        });
+      }
+    } catch (error) {
+      console.error('Error in video RAG update:', error);
+      if (trace) {
+        await trace.update({
+          output: {
+            status: 'error',
+            error: error instanceof Error ? error.message : String(error),
+            errorType: error instanceof Error ? error.constructor.name : 'Unknown',
+            stack: error instanceof Error ? error.stack : undefined
+          }
+        });
+      }
+      throw error; // Rethrow to trigger function retry
     }
   });
 
@@ -293,20 +348,76 @@ again. do not repeat comments. thats so fucking stupid. people dont want to read
 
 // Callable function to search videos
 export const searchVideos = functions.https.onCall<SearchRequest>(async (request) => {
-  const { query, limit = 10 } = request.data;
-  
-  if (!query || typeof query !== 'string') {
-    throw new functions.https.HttpsError(
-      'invalid-argument',
-      'Query must be a non-empty string'
-    );
-  }
-  
+  let trace;
+  const startTime = Date.now();
+
   try {
+    const { query, limit = 10 } = request.data;
+    
+    if (!query || typeof query !== 'string') {
+      throw new functions.https.HttpsError(
+        'invalid-argument',
+        'Query must be a non-empty string'
+      );
+    }
+
+    trace = await langfuse.trace({
+      id: `video-search-${Date.now()}`,
+      name: "Video Search",
+      metadata: {
+        query,
+        limit,
+        userId: request.auth?.uid,
+        functionName: 'searchVideos'
+      },
+      tags: [
+        'function:video_search',
+        request.auth?.uid ? 'authenticated' : 'anonymous'
+      ]
+    });
+
+    // Create generation span for the search operation
+    const searchSpan = await trace.span({
+      name: "RAG Search",
+      input: {
+        query,
+        limit
+      }
+    });
+    
     const results = await querySimilarVideos(query, limit);
+    
+    await searchSpan.update({
+      output: {
+        resultCount: results.length,
+        topScores: results.slice(0, 3).map(r => r.score),
+        processingTimeMs: Date.now() - startTime
+      }
+    });
+
+    await trace.update({
+      output: {
+        status: 'success',
+        resultCount: results.length,
+        processingTimeMs: Date.now() - startTime,
+        queryLength: query.length,
+        hasResults: results.length > 0
+      }
+    });
+
     return { results };
   } catch (error) {
     console.error('Error searching videos:', error);
+    if (trace) {
+      await trace.update({
+        output: {
+          status: 'error',
+          error: error instanceof Error ? error.message : String(error),
+          errorType: error instanceof Error ? error.constructor.name : 'Unknown',
+          stack: error instanceof Error ? error.stack : undefined
+        }
+      });
+    }
     throw new functions.https.HttpsError(
       'internal',
       'Failed to search videos'
