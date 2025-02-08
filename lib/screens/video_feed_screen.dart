@@ -186,8 +186,9 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
           _videos = [..._videos, ...newVideos];
           _isLoadingMore = false;
         });
+        // Force controller initialization after loading videos
+        _initializeControllersAround(_currentVideoIndex);
       }
-      print('Total videos in feed: ${_videos.length}');
     } catch (e) {
       print('Error loading videos: $e');
       if (mounted) {
@@ -219,7 +220,7 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
     }
     
     // Calculate window of videos to load
-    final start = (index - 1).clamp(0, _videos.length);
+    final start = (index - 1).clamp(0, _videos.length - 1);
     final end = (index + _preloadWindow).clamp(0, _videos.length);
     
     // Remove controllers outside window
@@ -240,13 +241,21 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
         );
         
         try {
+          _controllers[i] = controller;  // Add to map immediately to prevent duplicate initialization
           await controller.initialize();
+          if (!mounted) {
+            controller.dispose();
+            _controllers.remove(i);
+            return;
+          }
           await controller.setVolume(0.0);
           await controller.setLooping(true);
-          _controllers[i] = controller;
+          setState(() {}); // Trigger rebuild with initialized controller
         } catch (e) {
           print('Error initializing controller for video $i: $e');
           controller.dispose();
+          _controllers.remove(i);
+          continue;
         }
       }
     }
@@ -873,18 +882,19 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
                       }
 
                       final video = _videos[index];
+                      final controller = _controllers[index];
+                      
                       return Stack(
                         children: [
                           // Video viewer
-                          VideoViewer(
-                            video: video,
-                            controller: _controllers[index] ?? VideoPlayerController.network(
-                              video.videoUrl,
-                              videoPlayerOptions: VideoPlayerOptions(mixWithOthers: true),
-                            ),
-                            showControls: true,
-                            isInFeed: true,
-                          ),
+                          controller == null || !controller.value.isInitialized
+                            ? const Center(child: LoadingIndicator())
+                            : VideoViewer(
+                                video: video,
+                                controller: controller,
+                                showControls: true,
+                                isInFeed: true,
+                              ),
 
                           // Video info and actions in a row
                           Positioned(
