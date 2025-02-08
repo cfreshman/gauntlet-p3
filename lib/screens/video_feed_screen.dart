@@ -510,9 +510,11 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
               .snapshots(),
           builder: (context, snapshot) {
             String? minecraftUsername;
+            String? photoUrl;
             if (snapshot.hasData && snapshot.data!.exists) {
               final data = snapshot.data!.data() as Map<String, dynamic>;
               minecraftUsername = data['minecraftUsername'] as String?;
+              photoUrl = data['photoUrl'] as String?;
             }
             
             return Container(
@@ -551,26 +553,10 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
                               ),
                             );
                           }
-                          return Container(
-                            width: 48,
-                            height: 48,
-                            decoration: BoxDecoration(
-                              color: AppColors.accent.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Icon(Icons.person, color: AppColors.accent),
-                          );
+                          return _buildProfileIcon(photoUrl);
                         },
                       )
-                    : Container(
-                        width: 48,
-                        height: 48,
-                        decoration: BoxDecoration(
-                          color: AppColors.accent.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Icon(Icons.person, color: AppColors.accent),
-                      ),
+                    : _buildProfileIcon(photoUrl),
               ),
             );
           }
@@ -705,6 +691,26 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
           },
         ),
       ],
+    );
+  }
+
+  Widget _buildProfileIcon(String? photoUrl) {
+    return Container(
+      width: 48,
+      height: 48,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: AppColors.accent.withOpacity(0.1),
+        image: photoUrl != null
+            ? DecorationImage(
+                image: NetworkImage(photoUrl),
+                fit: BoxFit.cover,
+              )
+            : null,
+      ),
+      child: photoUrl == null
+          ? Icon(Icons.person, color: AppColors.accent)
+          : null,
     );
   }
 
