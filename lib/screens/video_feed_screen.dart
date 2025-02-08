@@ -25,6 +25,7 @@ import 'package:flutter/services.dart';
 import '../services/url_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
+import 'package:go_router/go_router.dart';
 
 class VideoFeedScreen extends StatefulWidget {
   final List<Video>? videos;  // Optional list of videos to show instead of feed
@@ -971,7 +972,12 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
                                               children: video.tags.map((tag) {
                                                 return GestureDetector(
                                                   onTap: () {
-                                                    HomeScreen.navigateToSearch(context, tag);
+                                                    if (Navigator.canPop(context)) {
+                                                      Navigator.pop(context);
+                                                      context.go('/search?tags=$tag');
+                                                    } else {
+                                                      HomeScreen.navigateToSearch(context, tag);
+                                                    }
                                                   },
                                                   child: Container(
                                                     padding: const EdgeInsets.symmetric(
