@@ -112,4 +112,4 @@ export const generateThumbnail = functions.https
   });
 
 export { generatePreview } from './preview';
-export { onVideoWrite, searchVideos, reindexAllVideos } from './rag/functions';
+export { onVideoWrite, searchVideos, reindexAllVideos, onCommentWrite } from './ai/functions';

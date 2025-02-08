@@ -821,4 +821,37 @@ class VideoService {
 
     return snapshot.docs.map((doc) => Video.fromFirestore(doc)).toList();
   }
+
+  // Get comment summary
+  Future<String?> getCommentSummary(String videoId) async {
+    try {
+      // Check cache first
+      final cachedSummary = await _firestore
+        .collection('videos')
+        .doc(videoId)
+        .collection('metadata')
+        .doc('commentSummary')
+        .get();
+
+      if (cachedSummary.exists) {
+        final data = cachedSummary.data()!;
+        // If cache is fresh (less than 1 hour old)
+        if ((data['updatedAt'] as Timestamp).toDate().isAfter(
+          DateTime.now().subtract(const Duration(hours: 1))
+        )) {
+          return data['summary'] as String?;
+        }
+      }
+
+      // Generate new summary
+      final result = await _functions
+        .httpsCallable('summarizeComments')
+        .call({ 'videoId': videoId });
+      
+      return result.data['summary'] as String?;
+    } catch (e) {
+      print('Error getting comment summary: $e');
+      return null;
+    }
+  }
 } 

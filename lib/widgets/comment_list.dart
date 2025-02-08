@@ -28,11 +28,14 @@ class _CommentListState extends State<CommentList> {
   bool _isSubmitting = false;
   List<Comment> _currentComments = [];
   bool _isLoading = true;
+  String? _summary;
+  bool _isLoadingSummary = false;
 
   @override
   void initState() {
     super.initState();
     _loadComments();
+    _loadCommentSummary();
   }
 
   @override
@@ -60,6 +63,33 @@ class _CommentListState extends State<CommentList> {
     } catch (e) {
       if (mounted) {
         setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  Future<void> _loadCommentSummary() async {
+    setState(() => _isLoadingSummary = true);
+    
+    try {
+      final summaryDoc = await FirebaseFirestore.instance
+        .collection('videos')
+        .doc(widget.videoId)
+        .collection('metadata')
+        .doc('commentSummary')
+        .get();
+
+      if (mounted && summaryDoc.exists) {
+        setState(() {
+          _summary = summaryDoc.data()?['summary'] as String?;
+          _isLoadingSummary = false;
+        });
+      } else {
+        setState(() => _isLoadingSummary = false);
+      }
+    } catch (e) {
+      print('Error loading comment summary: $e');
+      if (mounted) {
+        setState(() => _isLoadingSummary = false);
       }
     }
   }
@@ -108,15 +138,15 @@ class _CommentListState extends State<CommentList> {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        // Comment list
+        // Comment list with summary
         Expanded(
-          child: _isLoading 
+          child: _isLoading || _isLoadingSummary
             ? Center(
                 child: CircularProgressIndicator(
                   color: AppColors.accent,
                 ),
               )
-            : _currentComments.isEmpty && !_isSubmitting
+            : _currentComments.isEmpty && !_isSubmitting && _summary == null
               ? Center(
                   child: Text(
                     'no comments yet'.toLowerCase(),
@@ -128,9 +158,57 @@ class _CommentListState extends State<CommentList> {
                 )
               : ListView.builder(
                   padding: const EdgeInsets.symmetric(vertical: 4),
-                  itemCount: _currentComments.length,
+                  itemCount: _currentComments.length + (_summary != null ? 1 : 0),
                   itemBuilder: (context, index) {
-                    final comment = _currentComments[index];
+                    // Show summary at the top if it exists
+                    if (_summary != null && index == 0) {
+                      return Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: AppColors.cardBackground,
+                          border: Border(
+                            bottom: BorderSide(
+                              color: AppColors.divider,
+                              width: 1,
+                            ),
+                          ),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Icon(
+                                  Icons.summarize,
+                                  color: AppColors.accent,
+                                  size: 14,
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  'discussion summary'.toLowerCase(),
+                                  style: TextStyle(
+                                    color: AppColors.accent,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              _summary!.toLowerCase(),
+                              style: TextStyle(
+                                color: AppColors.textPrimary,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }
+                    // Show comments after summary
+                    final commentIndex = _summary != null ? index - 1 : index;
+                    final comment = _currentComments[commentIndex];
                     return _CommentTile(
                       comment: comment,
                       videoId: widget.videoId,

@@ -8,7 +8,7 @@
     "serve": "npm run build && firebase emulators:start --only functions",
     "shell": "npm run build && firebase functions:shell",
     "start": "npm run shell",
-    "deploy": "firebase deploy --only functions",
+    "deploy": "npm run build && firebase deploy --only functions --env-file .env.local",
     "deploy:rag": "firebase deploy --only functions:onVideoWrite,functions:searchVideos,functions:reindexAllVideos",
     "logs": "firebase functions:log",
     "logs:rag": "firebase functions:log --only onVideoWrite,searchVideos,reindexAllVideos",
@@ -27,7 +27,8 @@
     "firebase-functions": "^6.3.1",
     "fluent-ffmpeg": "^2.1.2",
     "node-fetch": "^2.7.0",
-    "openai": "^4.83.0"
+    "openai": "^4.83.0",
+    "dotenv": "^16.4.5"
   },
   "devDependencies": {
     "@typescript-eslint/eslint-plugin": "^5.12.0",

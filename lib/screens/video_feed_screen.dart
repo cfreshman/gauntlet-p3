@@ -754,6 +754,9 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
                 focusNode: FocusNode(),
                 autofocus: true,
                 onKey: (event) {
+                  // Don't handle keyboard navigation when comments are open
+                  if (_showComments) return;
+                  
                   if (event is RawKeyDownEvent) {
                     if (event.logicalKey.keyLabel == 'Arrow Up' || 
                         event.logicalKey.keyLabel.toLowerCase() == 'w') {
