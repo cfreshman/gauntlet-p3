@@ -201,8 +201,29 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
   void _handleScroll() {
     final page = _pageController.page?.round() ?? 0;
     if (page != _currentVideoIndex) {
+      // Pause the previous video
+      if (_playingIndex != null) {
+        final oldController = _controllers[_playingIndex];
+        if (oldController != null) {
+          oldController.pause();
+          oldController.setVolume(0.0);
+        }
+      }
+
       setState(() => _currentVideoIndex = page);
-      _initializeControllersAround(page);
+      
+      // Play the new video if it's already loaded
+      if (_controllers.containsKey(page)) {
+        final controller = _controllers[page];
+        if (controller != null) {
+          final audioState = context.read<AudioStateProvider>();
+          controller.setVolume(audioState.isMuted ? 0.0 : 1.0);
+          controller.play();
+          _playingIndex = page;
+        }
+      } else {
+        _initializeControllersAround(page);
+      }
     }
   }
 
@@ -247,10 +268,26 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
           if (!mounted) {
             controller.dispose();
             _controllers.remove(i);
-            return;
+            return;  // Exit early if widget is disposed
           }
-          await controller.setVolume(0.0);
-          await controller.setLooping(true);
+          
+          // Only set volume and play if this is the current page and we're still mounted
+          if (mounted && i == _currentVideoIndex) {
+            final audioState = context.read<AudioStateProvider>();
+            await controller.setVolume(audioState.isMuted ? 0.0 : 1.0);
+            await controller.setLooping(true);
+            
+            // Only play if this is still the current page
+            if (mounted && i == _currentVideoIndex) {
+              await controller.play();
+              _playingIndex = i;
+            }
+          } else {
+            // For non-current videos, just set volume to 0 and enable looping
+            await controller.setVolume(0.0);
+            await controller.setLooping(true);
+          }
+          
           setState(() {}); // Trigger rebuild with initialized controller
         } catch (e) {
           print('Error initializing controller for video $i: $e');
@@ -258,17 +295,6 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
           _controllers.remove(i);
           continue;
         }
-      }
-    }
-
-    // Play the current video
-    if (_controllers.containsKey(index)) {
-      final controller = _controllers[index];
-      if (controller != null) {
-        final audioState = context.read<AudioStateProvider>();
-        await controller.setVolume(audioState.isMuted ? 0.0 : 1.0);
-        await controller.play();
-        _playingIndex = index;
       }
     }
   }
@@ -521,6 +547,9 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
               margin: const EdgeInsets.only(bottom: 8),
               child: GestureDetector(
                 onTap: () {
+                  // Store current video state before navigating
+                  final currentIndex = _currentVideoIndex;
+                  
                   Navigator.push(
                     context,
                     MaterialPageRoute(
@@ -528,10 +557,25 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
                     ),
                   ).then((_) {
                     if (mounted) {
-                      _initializeControllersAround(_currentVideoIndex);
+                      // Ensure we're at the correct position
+                      if (_pageController.page?.round() != currentIndex) {
+                        _pageController.jumpToPage(currentIndex);
+                      }
+                      
+                      // Initialize controllers and ensure the current video plays
+                      final audioState = context.read<AudioStateProvider>();
+                      final currentController = _controllers[currentIndex];
+                      if (currentController != null) {
+                        currentController.setVolume(audioState.isMuted ? 0.0 : 1.0);
+                        currentController.play();
+                        _playingIndex = currentIndex;
+                      } else {
+                        _initializeControllersAround(currentIndex);
+                      }
                     }
                   });
                   
+                  // Pause current video before navigating
                   if (_playingIndex != null) {
                     final controller = _controllers[_playingIndex];
                     if (controller != null) {
