@@ -7,6 +7,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:timeago/timeago.dart' as timeago;
 import '../screens/profile_screen.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import '../services/minecraft_skin_service.dart';
 
 class CommentList extends StatefulWidget {
   final String videoId;
@@ -291,6 +292,9 @@ class _CommentTileState extends State<_CommentTile> {
   bool _isLoading = false;
   String _username = '';
   String? _userPhotoUrl;
+  String? _minecraftUsername;
+  final _minecraftService = MinecraftSkinService();
+  String? _faceUrl;
 
   @override
   void initState() {
@@ -308,6 +312,7 @@ class _CommentTileState extends State<_CommentTile> {
       setState(() {
         _username = '';
         _userPhotoUrl = null;
+        _minecraftUsername = null;
       });
       _loadUserInfo();
     }
@@ -327,10 +332,23 @@ class _CommentTileState extends State<_CommentTile> {
     try {
       final userDoc = await _firestore.collection('users').doc(widget.comment.userId).get();
       if (mounted && userDoc.exists) {
+        final data = userDoc.data()!;
         setState(() {
-          _username = userDoc.data()?['displayName'] ?? '';
-          _userPhotoUrl = userDoc.data()?['photoUrl'];
+          _username = data['displayName'] ?? '';
+          _userPhotoUrl = data['photoUrl'];
+          _minecraftUsername = data['minecraftUsername'];
         });
+        
+        if (_minecraftUsername != null && _minecraftUsername!.isNotEmpty) {
+          try {
+            final faceUrl = await _minecraftService.getHeadUrl(_minecraftUsername!, scale: 4);
+            if (mounted) {
+              setState(() => _faceUrl = faceUrl);
+            }
+          } catch (e) {
+            print('Error loading Minecraft head: $e');
+          }
+        }
       }
     } catch (e) {
       print('Error loading user info: $e');
@@ -410,16 +428,40 @@ class _CommentTileState extends State<_CommentTile> {
             ),
           );
         },
-        child: CircleAvatar(
-          backgroundColor: AppColors.accent,
-          backgroundImage: _userPhotoUrl != null ? NetworkImage(_userPhotoUrl!) : null,
-          child: _userPhotoUrl == null
-            ? Text(
-                _username.isNotEmpty ? _username[0].toUpperCase() : '?',
-                style: TextStyle(color: AppColors.background),
-              )
-            : null,
-        ),
+        child: _minecraftUsername != null && _minecraftUsername!.isNotEmpty && _faceUrl != null
+          ? SizedBox(
+              width: 40,
+              height: 40,
+              child: Image.network(
+                _faceUrl!,
+                fit: BoxFit.contain,
+                errorBuilder: (context, error, stackTrace) {
+                  // Fallback to regular avatar on error
+                  return CircleAvatar(
+                    radius: 20,
+                    backgroundColor: AppColors.accent,
+                    backgroundImage: _userPhotoUrl != null ? NetworkImage(_userPhotoUrl!) : null,
+                    child: _userPhotoUrl == null
+                      ? Text(
+                          _username.isNotEmpty ? _username[0].toUpperCase() : '?',
+                          style: TextStyle(color: AppColors.background),
+                        )
+                      : null,
+                  );
+                },
+              ),
+            )
+          : CircleAvatar(
+              radius: 20,
+              backgroundColor: AppColors.accent,
+              backgroundImage: _userPhotoUrl != null ? NetworkImage(_userPhotoUrl!) : null,
+              child: _userPhotoUrl == null
+                ? Text(
+                    _username.isNotEmpty ? _username[0].toUpperCase() : '?',
+                    style: TextStyle(color: AppColors.background),
+                  )
+                : null,
+            ),
       ),
       title: Row(
         children: [
