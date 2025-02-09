@@ -13,6 +13,9 @@ import 'package:path_provider/path_provider.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'url_service.dart';
 import 'captions_service.dart';
+import 'video_converter_service.dart';
+import 'package:http/http.dart' as http;
+import 'dart:async';
 
 class VideoService {
   final FirebaseStorage _storage = FirebaseStorage.instance;
@@ -23,110 +26,42 @@ class VideoService {
   // Add getter for firestore
   FirebaseFirestore get firestore => _firestore;
 
-  Future<Video> uploadVideo({
-    required XFile videoFile,
+  Future<VideoUploadResult> uploadVideo({
     required String title,
     required String description,
-    required List<String> tags,
-    void Function(double)? onProgress,
+    required Set<String> tags,
+    required String videoUrl,
+    required String thumbnailUrl,
+    required int durationMs,
   }) async {
     try {
-      print('Starting video upload process...');
-      print('File path: ${videoFile.path}');
-
-      final user = _auth.currentUser;
-      if (user == null) throw Exception('User must be logged in to upload videos');
-      print('User authenticated: ${user.uid}');
-
-      // 1. Upload video file to Storage
-      final videoFileName = '${DateTime.now().millisecondsSinceEpoch}_${path.basename(videoFile.path)}';
-      print('Generated filename: $videoFileName');
-
-      // Store in the correct path structure: videos/{userId}/{fileName}
-      final videoRef = _storage.ref().child('videos/${user.uid}/$videoFileName');
-      print('Storage reference created');
-
-      UploadTask uploadTask;
-      if (kIsWeb) {
-        final bytes = await videoFile.readAsBytes();
-        uploadTask = videoRef.putData(bytes, SettableMetadata(
-          contentType: 'video/mp4',
-        ));
-      } else {
-        uploadTask = videoRef.putFile(File(videoFile.path), SettableMetadata(
-          contentType: 'video/mp4',
-        ));
-      }
-      print('Upload task started');
-
-      // Monitor upload progress
-      uploadTask.snapshotEvents.listen((TaskSnapshot snapshot) {
-        final progress = (snapshot.bytesTransferred / snapshot.totalBytes);
-        onProgress?.call(progress);
-        print('Upload progress: ${(progress * 100).toStringAsFixed(2)}%');
-      }, onError: (error) {
-        print('Upload error: $error');
-      });
-
-      final snapshot = await uploadTask;
-      print('Upload completed');
-
-      final videoUrl = await snapshot.ref.getDownloadURL();
-      print('Video URL obtained: $videoUrl');
-
-      // Call the Cloud Function to generate thumbnail and get metadata
-      print('Calling generateThumbnail function...');
-      final result = await _functions.httpsCallable('generateThumbnail').call({
-        'filePath': 'videos/${user.uid}/$videoFileName',
-      });
-      
-      final data = result.data as Map<String, dynamic>;
-      final thumbnailUrl = data['thumbnailUrl'] as String;
-      final durationMs = data['durationMs'] as int;
-      print('Got metadata from function - thumbnail: $thumbnailUrl, duration: $durationMs');
-      
-      // Create video document in Firestore with all metadata
-      print('Creating Firestore document...');
-      final videoDoc = await _firestore.collection('videos').add({
+      // Create video document in Firestore
+      final videoRef = _firestore.collection('videos').doc();
+      await videoRef.set({
+        'id': videoRef.id,
         'title': title,
         'description': description,
+        'tags': tags.toList(),
         'videoUrl': videoUrl,
         'thumbnailUrl': thumbnailUrl,
         'durationMs': durationMs,
-        'creatorId': user.uid,
-        'creatorUsername': user.displayName ?? 'Anonymous',
-        'tags': tags,
+        'creatorId': _auth.currentUser!.uid,
         'createdAt': FieldValue.serverTimestamp(),
+        'viewCount': 0,
         'likeCount': 0,
         'commentCount': 0,
-        'viewCount': 0,
       });
-      print('Firestore document created with ID: ${videoDoc.id}');
 
-      // Fetch the created document
-      final docSnapshot = await videoDoc.get();
-      print('Upload process completed successfully');
-      
-      return Video.fromFirestore(docSnapshot);
-    } catch (e, stackTrace) {
-      print('Error during video upload: $e');
-      print('Stack trace: $stackTrace');
-      throw Exception('Failed to upload video: $e');
-    }
-  }
-
-  Future<String> _generateThumbnail(File videoFile) async {
-    try {
-      // Initialize video controller
-      final controller = VideoPlayerController.file(videoFile);
-      await controller.initialize();
-      
-      // TODO: Generate actual thumbnail from video frame
-      // For now, we'll return an empty string
-      controller.dispose();
-      return '';
+      return VideoUploadResult(
+        videoUrl: videoUrl,
+        thumbnailUrl: thumbnailUrl,
+        title: title,
+        description: description,
+        tags: tags,
+      );
     } catch (e) {
-      return '';
+      print('Error in uploadVideo: $e');
+      throw Exception('Failed to upload video: $e');
     }
   }
 
@@ -882,4 +817,20 @@ class VideoService {
       yield null;
     }
   }
+}
+
+class VideoUploadResult {
+  final String videoUrl;
+  final String thumbnailUrl;
+  final String title;
+  final String description;
+  final Set<String> tags;
+
+  VideoUploadResult({
+    required this.videoUrl,
+    required this.thumbnailUrl,
+    required this.title,
+    required this.description,
+    required this.tags,
+  });
 } 

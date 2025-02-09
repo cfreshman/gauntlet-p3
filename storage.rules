@@ -20,6 +20,13 @@ service firebase.storage {
       allow write: if false;  // Only allow writes through Cloud Functions
     }
 
+    // Temporary files for video processing
+    match /temp/{fileName} {
+      allow read: if isSignedIn();
+      allow create, write: if isSignedIn();  // Allow authenticated users to upload
+      allow delete: if false;  // Only allow deletion through Cloud Functions
+    }
+
     // Video files - require auth for upload, public for viewing
     match /videos/{userId}/{fileName} {
       allow read: if true;  // Public read access
