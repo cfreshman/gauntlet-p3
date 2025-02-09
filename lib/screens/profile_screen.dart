@@ -432,13 +432,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                                 child: Column(
                                                   mainAxisSize: MainAxisSize.min,
                                                   children: [
-                                                    Text(
-                                                      result.data['rating'],
-                                                      style: TextStyle(
-                                                        color: AppColors.textPrimary,
-                                                        fontSize: 16,
+                                                    ConstrainedBox(
+                                                      constraints: BoxConstraints(
+                                                        maxHeight: MediaQuery.of(context).size.height * 0.5,
                                                       ),
-                                                      textAlign: TextAlign.center,
+                                                      child: SingleChildScrollView(
+                                                        child: Text(
+                                                          result.data['rating'],
+                                                          style: TextStyle(
+                                                            color: AppColors.textPrimary,
+                                                            fontSize: 16,
+                                                          ),
+                                                          textAlign: TextAlign.center,
+                                                        ),
+                                                      ),
                                                     ),
                                                     const SizedBox(height: 16),
                                                     TextButton(
