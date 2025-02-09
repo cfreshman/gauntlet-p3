@@ -12,6 +12,7 @@ import '../widgets/sidebar_layout.dart';
 import 'edit_profile_screen.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../services/minecraft_skin_service.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 
 class ProfileScreen extends StatefulWidget {
   final String? userId;  // If null, show current user's profile
@@ -381,42 +382,134 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                     style: TextStyle(color: AppColors.textSecondary),
                                   ),
                                 ),
-                                TextButton(
-                                  onPressed: () async {
-                                    try {
-                                      await _minecraftService.downloadSkin(_minecraftUsername!);
-                                      if (mounted) {
-                                        Navigator.pop(context);
-                                        ScaffoldMessenger.of(context).showSnackBar(
-                                          SnackBar(
-                                            content: Text(
-                                              'downloading skin...'.toLowerCase(),
-                                              style: TextStyle(color: AppColors.background),
+                                if (_isCurrentUser)
+                                  TextButton(
+                                    onPressed: () async {
+                                      // Show loading dialog first
+                                      showDialog(
+                                        context: context,
+                                        barrierDismissible: false,
+                                        builder: (context) => Dialog(
+                                          backgroundColor: AppColors.background,
+                                          child: Padding(
+                                            padding: const EdgeInsets.all(16),
+                                            child: Column(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                const CircularProgressIndicator(),
+                                                const SizedBox(height: 16),
+                                                Text(
+                                                  'villager is thinking...'.toLowerCase(),
+                                                  style: TextStyle(
+                                                    color: AppColors.textPrimary,
+                                                    fontSize: 16,
+                                                  ),
+                                                ),
+                                              ],
                                             ),
-                                            backgroundColor: AppColors.accent,
                                           ),
-                                        );
-                                      }
-                                    } catch (e) {
-                                      if (mounted) {
-                                        Navigator.pop(context);
-                                        ScaffoldMessenger.of(context).showSnackBar(
-                                          SnackBar(
-                                            content: Text(
-                                              'failed to download skin'.toLowerCase(),
-                                              style: TextStyle(color: AppColors.background),
+                                        ),
+                                      );
+
+                                      try {
+                                        final functions = FirebaseFunctions.instance;
+                                        final skinUrl = await _minecraftService.getFullBodyUrl(_minecraftUsername!);
+                                        
+                                        final result = await functions
+                                          .httpsCallable('rateSkin')
+                                          .call({ 'skinUrl': skinUrl });
+                                        
+                                        if (mounted) {
+                                          // Close loading dialog
+                                          Navigator.pop(context);
+                                          // Show rating dialog
+                                          showDialog(
+                                            context: context,
+                                            builder: (context) => Dialog(
+                                              backgroundColor: AppColors.background,
+                                              child: Padding(
+                                                padding: const EdgeInsets.all(16),
+                                                child: Column(
+                                                  mainAxisSize: MainAxisSize.min,
+                                                  children: [
+                                                    Text(
+                                                      result.data['rating'],
+                                                      style: TextStyle(
+                                                        color: AppColors.textPrimary,
+                                                        fontSize: 16,
+                                                      ),
+                                                      textAlign: TextAlign.center,
+                                                    ),
+                                                    const SizedBox(height: 16),
+                                                    TextButton(
+                                                      onPressed: () => Navigator.pop(context),
+                                                      child: Text(
+                                                        'close'.toLowerCase(),
+                                                        style: TextStyle(color: AppColors.accent),
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
                                             ),
-                                            backgroundColor: AppColors.error,
-                                          ),
-                                        );
+                                          );
+                                        }
+                                      } catch (e) {
+                                        if (mounted) {
+                                          ScaffoldMessenger.of(context).showSnackBar(
+                                            SnackBar(
+                                              content: Text(
+                                                'failed to get rating'.toLowerCase(),
+                                                style: TextStyle(color: AppColors.background),
+                                              ),
+                                              backgroundColor: AppColors.error,
+                                            ),
+                                          );
+                                        }
                                       }
-                                    }
-                                  },
-                                  child: Text(
-                                    'download'.toLowerCase(),
-                                    style: TextStyle(color: AppColors.accent),
+                                    },
+                                    child: Text(
+                                      'get rating'.toLowerCase(),
+                                      style: TextStyle(color: AppColors.accent),
+                                    ),
+                                  )
+                                else
+                                  TextButton(
+                                    onPressed: () async {
+                                      try {
+                                        await _minecraftService.downloadSkin(_minecraftUsername!);
+                                        if (mounted) {
+                                          Navigator.pop(context);
+                                          ScaffoldMessenger.of(context).showSnackBar(
+                                            SnackBar(
+                                              content: Text(
+                                                'downloading skin...'.toLowerCase(),
+                                                style: TextStyle(color: AppColors.background),
+                                              ),
+                                              backgroundColor: AppColors.accent,
+                                            ),
+                                          );
+                                        }
+                                      } catch (e) {
+                                        if (mounted) {
+                                          Navigator.pop(context);
+                                          ScaffoldMessenger.of(context).showSnackBar(
+                                            SnackBar(
+                                              content: Text(
+                                                'failed to download skin'.toLowerCase(),
+                                                style: TextStyle(color: AppColors.background),
+                                              ),
+                                              backgroundColor: AppColors.error,
+                                            ),
+                                          );
+                                        }
+                                      }
+                                    },
+                                    child: Text(
+                                      'download'.toLowerCase(),
+                                      style: TextStyle(color: AppColors.accent),
+                                    ),
                                   ),
-                                ),
                               ],
                             ),
                           ],

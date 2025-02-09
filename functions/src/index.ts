@@ -199,7 +199,7 @@ export const getOrCreateCaptions = functions.https
 
       // Save VTT file
       console.log('Saving VTT file...');
-      fs.writeFileSync(captionsPath, transcription);
+      fs.writeFileSync(captionsPath, String(transcription));
       console.log('VTT file saved to:', captionsPath);
 
       // Upload captions
@@ -254,4 +254,4 @@ export const getOrCreateCaptions = functions.https
   });
 
 export { generatePreview } from './preview';
-export { onVideoWrite, searchVideos, reindexAllVideos, onCommentWrite } from './ai/functions';
+export { onVideoWrite, searchVideos, reindexAllVideos, onCommentWrite, rateSkin } from './ai/functions';

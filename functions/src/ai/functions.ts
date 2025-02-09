@@ -461,4 +461,88 @@ export const reindexAllVideos = functions.https.onRequest(
       res.status(500).send('Internal server error');
     }
   }
-); 
+);
+
+// Rate a Minecraft skin using GPT-4
+export const rateSkin = functions.https.onCall({
+  memory: "512MiB",
+  timeoutSeconds: 60,
+  minInstances: 0,
+  maxInstances: 10
+}, async (request: functions.https.CallableRequest<{ skinUrl: string }>, context) => {
+  const { skinUrl } = request.data;
+  let trace;
+  
+  try {
+    // Create trace for monitoring
+    trace = await langfuse.trace({
+      id: `skin-rating-${Date.now()}`,
+      name: "Minecraft Skin Rating",
+      metadata: {
+        skinUrl,
+        functionName: 'rateSkin'
+      },
+      tags: [
+        'function:skin_rating',
+        `skin:${skinUrl}`
+      ]
+    });
+
+    // Get GPT-4 to rate the skin
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        {
+          role: "system",
+          content: 
+`You are a Minecraft villager evaluating player skins
+Be creative, humorous, and speak in the style of a villager (using 'Hrmm' and other villager sounds)`
+        },
+        {
+          role: "user",
+          content: [
+            {
+              type: "text",
+              text: "What do you think of this Minecraft skin? Rate it as a villager would."
+            },
+            {
+              type: "image_url",
+              image_url: {
+                url: skinUrl,
+                detail: "high"
+              }
+            }
+          ]
+        }
+      ],
+      max_tokens: 150
+    });
+
+    const rating = completion.choices[0].message.content;
+
+    await trace.update({
+      output: {
+        status: 'success',
+        rating,
+        skinUrl
+      }
+    });
+
+    return { rating };
+
+  } catch (error) {
+    console.error('Error in skin rating:', error);
+    if (trace) {
+      await trace.update({
+        output: {
+          status: 'error',
+          error: error instanceof Error ? error.message : String(error),
+          errorType: error instanceof Error ? error.constructor.name : 'Unknown',
+          stack: error instanceof Error ? error.stack : undefined
+        }
+      });
+    }
+    throw error instanceof functions.https.HttpsError ? error : 
+          new functions.https.HttpsError('internal', 'Error rating skin: ' + error);
+  }
+}); 
