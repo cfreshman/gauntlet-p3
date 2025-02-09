@@ -12,6 +12,7 @@ import 'package:ffmpeg_kit_flutter/ffmpeg_kit.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'url_service.dart';
+import 'captions_service.dart';
 
 class VideoService {
   final FirebaseStorage _storage = FirebaseStorage.instance;
@@ -218,47 +219,9 @@ class VideoService {
 
   // Increment view count and track video history
   Future<void> incrementViewCount(String videoId) async {
-    try {
-      // First verify the video exists
-      final videoDoc = await _firestore.collection('videos').doc(videoId).get();
-      if (!videoDoc.exists) {
-        print('Video not found: $videoId');
-        return;
-      }
-
-      final batch = _firestore.batch();
-      
-      // Increment video view count
-      batch.update(
-        _firestore.collection('videos').doc(videoId),
-        {'viewCount': FieldValue.increment(1)}
-      );
-
-      // Track in user's history if logged in
-      final user = _auth.currentUser;
-      if (user != null) {
-        final historyRef = _firestore
-          .collection('users')
-          .doc(user.uid)
-          .collection('video_history')
-          .doc(videoId);
-
-        // Use set with merge to handle both create and update cases
-        batch.set(
-          historyRef,
-          {
-            'videoId': videoId,
-            'viewedAt': FieldValue.serverTimestamp(),
-          },
-          SetOptions(merge: true)
-        );
-      }
-
-      await batch.commit();
-    } catch (e) {
-      print('Error incrementing view count: $e');
-      // Don't throw - view count is non-critical
-    }
+    await _firestore.collection('videos').doc(videoId).update({
+      'viewCount': FieldValue.increment(1),
+    });
   }
 
   // Get current user's videos
@@ -852,6 +815,71 @@ class VideoService {
     } catch (e) {
       print('Error getting comment summary: $e');
       return null;
+    }
+  }
+
+  // Get captions for a video
+  Future<String?> getOrCreateCaptions(String videoId) async {
+    try {
+      final videoDoc = await _firestore.collection('videos').doc(videoId).get();
+      if (!videoDoc.exists) return null;
+      
+      final video = Video.fromFirestore(videoDoc);
+      if (video.captionsUrl != null) return video.captionsUrl;
+
+      // If no captions, call cloud function to generate them
+      final result = await _functions.httpsCallable('getOrCreateCaptions').call({
+        'videoId': videoId,
+      });
+
+      final captionsUrl = result.data['captionsUrl'] as String?;
+      if (captionsUrl != null) {
+        // Update video document with captions URL
+        await _firestore.collection('videos').doc(videoId).update({
+          'captionsUrl': captionsUrl,
+        });
+      }
+      return captionsUrl;
+    } catch (e) {
+      print('Error getting captions: $e');
+      return null;
+    }
+  }
+
+  // Stream captions based on video position
+  Stream<String?> getCaptionsStream(String videoId, Duration position) async* {
+    try {
+      print('Getting captions for video: $videoId at position: $position');
+      
+      // Get the captions URL
+      final url = await getOrCreateCaptions(videoId);
+      if (url == null) {
+        print('No captions URL found for video: $videoId');
+        yield null;
+        return;
+      }
+
+      print('Got captions URL: $url');
+
+      // Parse captions if not already cached
+      try {
+        final captions = await CaptionsService.parseCaptions(url);
+        print('Successfully parsed captions, got ${captions.length} entries');
+        
+        // Get current caption text
+        final captionText = CaptionsService.getCurrentCaption(captions, position);
+        print('Current caption at ${position.inMilliseconds}ms: $captionText');
+        
+        yield captionText;
+      } catch (e, stackTrace) {
+        print('Error parsing captions: $e');
+        print('Stack trace: $stackTrace');
+        yield null;
+      }
+    } catch (e, stackTrace) {
+      print('Error streaming captions: $e');
+      print('Stack trace: $stackTrace');
+      yield null;
     }
   }
 } 

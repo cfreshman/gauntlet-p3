@@ -14,6 +14,7 @@ import 'router.dart';
 // Only import web plugins when running on web
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter_web_plugins/url_strategy.dart' if (dart.library.html) 'package:flutter_web_plugins/flutter_web_plugins.dart';
+import 'providers/captions_state_provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -50,6 +51,7 @@ void main() async {
     MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => AudioStateProvider()),
+        ChangeNotifierProvider(create: (_) => CaptionsStateProvider()),
       ],
       child: const MainApp(),
     ),

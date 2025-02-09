@@ -8,7 +8,7 @@
     "serve": "npm run build && firebase emulators:start --only functions",
     "shell": "npm run build && firebase functions:shell",
     "start": "npm run shell",
-    "deploy": "npm run build && firebase deploy --only functions --env-file .env.local",
+    "deploy": "npm run build && firebase deploy --only functions",
     "deploy:rag": "firebase deploy --only functions:onVideoWrite,functions:searchVideos,functions:reindexAllVideos",
     "logs": "firebase functions:log",
     "logs:rag": "firebase functions:log --only onVideoWrite,searchVideos,reindexAllVideos",

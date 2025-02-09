@@ -14,6 +14,7 @@ class Video {
   final int commentCount;
   final int viewCount;
   final Duration? duration;
+  final String? captionsUrl;  // URL to the VTT captions file
 
   Video({
     required this.id,
@@ -29,6 +30,7 @@ class Video {
     this.commentCount = 0,
     this.viewCount = 0,
     this.duration,
+    this.captionsUrl,
   });
 
   // Create from Firestore document
@@ -48,6 +50,7 @@ class Video {
       commentCount: data['commentCount'] ?? 0,
       viewCount: data['viewCount'] ?? 0,
       duration: data['durationMs'] != null ? Duration(milliseconds: data['durationMs']) : null,
+      captionsUrl: data['captionsUrl'],
     );
   }
 
@@ -66,6 +69,7 @@ class Video {
       'commentCount': commentCount,
       'viewCount': viewCount,
       if (duration != null) 'durationMs': duration!.inMilliseconds,
+      if (captionsUrl != null) 'captionsUrl': captionsUrl,
     };
   }
 } 
