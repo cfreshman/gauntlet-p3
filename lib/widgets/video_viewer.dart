@@ -245,7 +245,7 @@ class _VideoViewerState extends State<VideoViewer> {
                       }
                       return ConstrainedBox(
                         constraints: BoxConstraints(
-                          maxWidth: MediaQuery.of(context).size.width - 240
+                          maxWidth: MediaQuery.of(context).size.width * 0.6,
                         ),
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
