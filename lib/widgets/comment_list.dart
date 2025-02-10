@@ -109,6 +109,8 @@ class _CommentListState extends State<CommentList> {
           _currentComments.insert(0, newComment);
           _commentController.clear();
         });
+        // Unfocus keyboard after submitting
+        FocusScope.of(context).unfocus();
       }
     } catch (e) {
       if (mounted) {

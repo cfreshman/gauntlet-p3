@@ -205,6 +205,11 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   }
 
   Future<void> _saveChanges() async {
+    if (_isLoading) return;
+    
+    // Unfocus keyboard
+    FocusScope.of(context).unfocus();
+
     if (!_hasChanges && 
         _usernameController.text == _auth.currentUser?.displayName &&
         _minecraftUsernameController.text.isEmpty) {

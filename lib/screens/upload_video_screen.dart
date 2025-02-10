@@ -35,6 +35,7 @@ class _UploadVideoScreenState extends State<UploadVideoScreen> {
   String? _thumbnailUrl;
   int? _durationMs;
   double _uploadProgress = 0.0;
+  bool _isUploading = false;
 
   static const int _maxSizeMB = 500;  // 500MB limit
   static const Duration _maxDuration = Duration(minutes: 10);
@@ -138,6 +139,11 @@ class _UploadVideoScreenState extends State<UploadVideoScreen> {
   }
 
   Future<void> _uploadVideo() async {
+    if (_isUploading) return;
+
+    // Unfocus keyboard
+    FocusScope.of(context).unfocus();
+
     if (_videoFile == null || _videoUrl == null || !_formKey.currentState!.validate()) return;
 
     try {
@@ -346,20 +352,23 @@ class _UploadVideoScreenState extends State<UploadVideoScreen> {
 
   Widget _buildUploadButton() {
     if (!_isCreatingPost) {
-      return Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
-        decoration: BoxDecoration(
-          color: AppColors.accent,
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Text(
-          'create post'.toLowerCase(),
-          style: TextStyle(
-            color: AppColors.background,
-            fontSize: 14,
+      return GestureDetector(
+        onTap: _uploadVideo,
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+          decoration: BoxDecoration(
+            color: AppColors.accent,
+            borderRadius: BorderRadius.circular(8),
           ),
-          textAlign: TextAlign.center,
+          child: Text(
+            'create post'.toLowerCase(),
+            style: TextStyle(
+              color: AppColors.background,
+              fontSize: 14,
+            ),
+            textAlign: TextAlign.center,
+          ),
         ),
       );
     }

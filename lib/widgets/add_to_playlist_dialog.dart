@@ -28,6 +28,11 @@ class _AddToPlaylistDialogState extends State<AddToPlaylistDialog> {
   }
 
   Future<void> _createPlaylist() async {
+    if (_isLoading) return;
+
+    // Unfocus keyboard
+    FocusScope.of(context).unfocus();
+
     if (_nameController.text.trim().isEmpty) return;
 
     try {
